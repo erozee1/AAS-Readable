@@ -53,23 +53,61 @@ That makes it useful for tasks such as:
 
 ## Installation
 
-### JSON-only usage
+`pip install -e .` is only for a local clone of the repository. It is useful for development, but it is not the normal install command for users downloading the tool from GitHub.
+
+### Install From GitHub
+
+JSON-only usage:
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
+pip install "git+https://github.com/erozee1/AAS-Readable.git"
+```
+
+With `.aasx` support:
+
+```bash
+pip install "git+https://github.com/erozee1/AAS-Readable.git#egg=aasx-md-exporter[aasx]"
+```
+
+### Install From A Local Clone
+
+Clone the repository first:
+
+```bash
+git clone https://github.com/erozee1/AAS-Readable.git
+cd AAS-Readable
+```
+
+Standard local install:
+
+```bash
+pip install .
+```
+
+Editable local install for development:
+
+```bash
 pip install -e .
 ```
 
-### With `.aasx` support
+### Optional `.aasx` Support
+
+If you are installing from a local clone and want `.aasx` support:
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
 pip install -e '.[aasx]'
 ```
 
 The optional `aasx` extra installs the Eclipse BaSyx Python SDK.
+
+### Recommended Virtual Environment Setup
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+Then run one of the install commands above.
 
 ## CLI
 
@@ -103,6 +141,12 @@ Reuse an existing output directory:
 
 ```bash
 aasx-md-exporter machine.aasx out/ --overwrite
+```
+
+After installation, verify that the CLI is available:
+
+```bash
+aasx-md-exporter --help
 ```
 
 ## Input Shapes
