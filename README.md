@@ -1,6 +1,6 @@
-# aasx-md-exporter
+# AAS-Readable
 
-`aasx-md-exporter` converts Asset Administration Shell content into clean Markdown for engineers, analysts, and LLM workflows.
+`AAS-Readable` converts Asset Administration Shell content into clean Markdown for engineers, analysts, and LLM workflows.
 
 It is meant for the gap between machine-readable digital twins and human-readable insight.
 
@@ -198,11 +198,9 @@ Show CLI help:
 PYTHONPATH=src python3 -m aasx_md_exporter.cli --help
 ```
 
-## Open Source Release Note
+## License
 
-Before publishing publicly, choose and add an explicit repository license.
-
-That choice is intentionally not invented here.
+This project is licensed under the Apache License 2.0. See [LICENSE](LICENSE).
 
 ## Further Reading
 
