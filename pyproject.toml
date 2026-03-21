@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aasx-md-exporter"
+version = "0.1.0"
+description = "Export Asset Administration Shell environments to human-readable Markdown"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+  {name = "Ethan Rozee"},
+]
+keywords = ["aas", "aasx", "digital-twin", "industry-4-0", "markdown", "llm"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Information Technology",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Documentation",
+  "Topic :: Scientific/Engineering :: Information Analysis",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = []
+
+[project.optional-dependencies]
+aasx = [
+  "basyx-python-sdk>=1.2",
+]
+
+[project.scripts]
+aasx-md-exporter = "aasx_md_exporter.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
