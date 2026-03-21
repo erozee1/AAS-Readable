@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from aasx_md_exporter.exporter import export_input_to_markdown
+from aas_readable.exporter import export_input_to_markdown
 
 
 class MarkdownRenderingTests(unittest.TestCase):

@@ -3,7 +3,7 @@
 ## Command
 
 ```bash
-aasx-md-exporter INPUT_PATH OUTPUT_DIR [--include SUBMODEL_NAME] [--overwrite]
+aas-readable INPUT_PATH OUTPUT_DIR [--include SUBMODEL_NAME] [--overwrite]
 ```
 
 ## Behavior

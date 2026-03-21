@@ -9,7 +9,7 @@ from .exporter import export_input_to_markdown
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="aasx-md-exporter",
+        prog="aas-readable",
         description="Export submodels from an AASX package or AAS JSON file to Markdown files.",
     )
     parser.add_argument("input_path", type=Path, help="Path to the input .aasx or .json file")

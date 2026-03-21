@@ -3,7 +3,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "aasx-md-exporter"
+name = "aas-readable"
 version = "0.1.0"
 description = "Export Asset Administration Shell environments to human-readable Markdown"
 readme = "README.md"
@@ -35,7 +35,7 @@ aasx = [
 ]
 
 [project.scripts]
-aasx-md-exporter = "aasx_md_exporter.cli:main"
+aas-readable = "aas_readable.cli:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

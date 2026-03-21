@@ -66,7 +66,7 @@ pip install "git+https://github.com/erozee1/AAS-Readable.git"
 With `.aasx` support:
 
 ```bash
-pip install "git+https://github.com/erozee1/AAS-Readable.git#egg=aasx-md-exporter[aasx]"
+pip install "git+https://github.com/erozee1/AAS-Readable.git#egg=aas-readable[aasx]"
 ```
 
 ### Install From A Local Clone
@@ -112,7 +112,7 @@ Then run one of the install commands above.
 ## CLI
 
 ```bash
-aasx-md-exporter INPUT_PATH OUTPUT_DIR [--include SUBMODEL_NAME] [--overwrite]
+aas-readable INPUT_PATH OUTPUT_DIR [--include SUBMODEL_NAME] [--overwrite]
 ```
 
 ### Examples
@@ -120,19 +120,19 @@ aasx-md-exporter INPUT_PATH OUTPUT_DIR [--include SUBMODEL_NAME] [--overwrite]
 Export a JSON environment:
 
 ```bash
-aasx-md-exporter app_aas.json out/
+aas-readable app_aas.json out/
 ```
 
 Export a packaged twin:
 
 ```bash
-aasx-md-exporter machine.aasx out/
+aas-readable machine.aasx out/
 ```
 
 Export selected submodels only:
 
 ```bash
-aasx-md-exporter machine.aasx out/ \
+aas-readable machine.aasx out/ \
   --include "Technical Data" \
   --include "Operational Data"
 ```
@@ -140,13 +140,13 @@ aasx-md-exporter machine.aasx out/ \
 Reuse an existing output directory:
 
 ```bash
-aasx-md-exporter machine.aasx out/ --overwrite
+aas-readable machine.aasx out/ --overwrite
 ```
 
 After installation, verify that the CLI is available:
 
 ```bash
-aasx-md-exporter --help
+aas-readable --help
 ```
 
 ## Input Shapes
@@ -239,7 +239,7 @@ PYTHONPATH=src python3 -m unittest discover -s tests -v
 Show CLI help:
 
 ```bash
-PYTHONPATH=src python3 -m aasx_md_exporter.cli --help
+PYTHONPATH=src python3 -m aas_readable.cli --help
 ```
 
 ## License
