@@ -1,8 +1,28 @@
 # AAS-Readable
 
-`AAS-Readable` converts Asset Administration Shell content into clean Markdown for engineers, analysts, and LLM workflows.
+`AAS-Readable` converts Asset Administration Shell content into clean Markdown for engineers, analysts, documentation teams, and LLM workflows.
 
-It is meant for the gap between machine-readable digital twins and human-readable insight.
+It is built for the gap between machine-readable digital twins and day-to-day human understanding.
+
+## Why This Exists
+
+AAS content is structured and interoperable, but not always easy to inspect directly.
+
+`AAS-Readable` makes a digital twin easier to:
+
+- review in Git
+- publish as internal documentation
+- index with standard search tools
+- compare between revisions
+- paste into an LLM without extra cleanup
+
+In practice, it turns AAS data into something that helps answer:
+
+- What is this asset?
+- What submodels does it expose?
+- What is currently happening in the twin?
+- What changed since the last export?
+- What should an LLM know before summarizing or reasoning over it?
 
 ## What It Does
 
@@ -18,19 +38,72 @@ It writes:
 - `index.md` as a navigation page
 - `llm-context.md` as a compact prompt-ready summary
 
-## Why Markdown
+## Quick Start
 
-AAS content is structured and interoperable, but it is not always easy to inspect directly during engineering work.
+Install from PyPI:
 
-Markdown makes a digital twin easier to:
+```bash
+pip install aas-readable
+```
 
-- review in Git
-- publish as internal documentation
-- index with standard search tools
-- compare between revisions
-- paste into an LLM without extra cleanup
+If you want `.aasx` support:
 
-In practice, this means you can turn an operational twin into something that explains what is currently happening, what changed recently, and which submodels matter.
+```bash
+pip install 'aas-readable[aasx]'
+```
+
+Export an AAS JSON file:
+
+```bash
+aas-readable app_aas.json out/
+```
+
+Export an AASX package:
+
+```bash
+aas-readable machine.aasx out/
+```
+
+Verify the CLI:
+
+```bash
+aas-readable --help
+```
+
+## What You Get
+
+Typical output:
+
+```text
+out/
+  index.md
+  llm-context.md
+  staticdata.md
+  functionaldata.md
+  operationaldata.md
+  lifecycledata.md
+```
+
+`index.md` gives you a quick overview of the exported asset shells and submodels.
+
+`llm-context.md` gives you a compact, structured summary intended to be pasted directly into an LLM prompt.
+
+Each submodel file gives you a readable Markdown rendering of the original structured content.
+
+## Example Workflow
+
+Export a wrapped record with both structured AAS data and narrative context:
+
+```bash
+aas-readable app_aas_0001.json out/app_aas_0001
+```
+
+Then use the generated files for different jobs:
+
+- read `index.md` to understand the twin structure
+- inspect individual submodel Markdown files during engineering review
+- paste `llm-context.md` into an LLM for summarization, comparison, or Q&A
+- commit the output directory to Git to diff twin revisions over time
 
 ## Why This Is Useful For LLMs
 
@@ -51,13 +124,44 @@ That makes it useful for tasks such as:
 - spotting missing fields
 - building retrieval corpora from AAS exports
 
+## Who It Is For
+
+Most useful for:
+
+- software and integration engineers working with AAS data
+- teams building digital thread or documentation pipelines
+- people using Git to review twin changes
+- teams preparing AAS content for search or LLM use
+
+Less useful, in its current form, as a primary interface for:
+
+- live controls operations
+- alarm monitoring
+- high-frequency operational dashboards
+
+This tool makes twins more readable. It does not replace a live operational UI.
+
 ## Installation
 
-`pip install -e .` is only for a local clone of the repository. It is useful for development, but it is not the normal install command for users downloading the tool from GitHub.
+### Recommended
+
+Standard install from PyPI:
+
+```bash
+pip install aas-readable
+```
+
+With optional `.aasx` support:
+
+```bash
+pip install 'aas-readable[aasx]'
+```
+
+The `aasx` extra installs the Eclipse BaSyx Python SDK.
 
 ### Install From GitHub
 
-JSON-only usage:
+If you want the latest repository version instead of the latest package release:
 
 ```bash
 pip install "git+https://github.com/erozee1/AAS-Readable.git"
@@ -90,15 +194,11 @@ Editable local install for development:
 pip install -e .
 ```
 
-### Optional `.aasx` Support
-
-If you are installing from a local clone and want `.aasx` support:
+Editable local install with `.aasx` support:
 
 ```bash
 pip install -e '.[aasx]'
 ```
-
-The optional `aasx` extra installs the Eclipse BaSyx Python SDK.
 
 ### Recommended Virtual Environment Setup
 
@@ -143,12 +243,6 @@ Reuse an existing output directory:
 aas-readable machine.aasx out/ --overwrite
 ```
 
-After installation, verify that the CLI is available:
-
-```bash
-aas-readable --help
-```
-
 ## Input Shapes
 
 ### Plain AAS JSON
@@ -173,20 +267,6 @@ It also supports records like this:
 ```
 
 If `canonical_text` is present, it is included in `llm-context.md`.
-
-## Output Layout
-
-```text
-out/
-  index.md
-  llm-context.md
-  staticdata.md
-  functionaldata.md
-  operationaldata.md
-  lifecycledata.md
-```
-
-Filenames are derived from submodel names and normalized to stable lowercase slugs.
 
 ## Example Export
 
