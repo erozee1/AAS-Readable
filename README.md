@@ -1,22 +1,21 @@
 # AAS-Readable
 
-`AAS-Readable` converts Asset Administration Shell content into clean Markdown for engineers, analysts, documentation teams, and LLM workflows.
+`AAS-Readable` helps engineers use Asset Administration Shell content with LLMs and agents.
 
-It can also emit YAML files for engineers feeding large structured AAS content into agents and LLMs.
+It converts machine-oriented AAS environments into compact Markdown and YAML outputs that are easier to inspect, diff, prompt with, and pass into downstream agent workflows.
 
-It is built for the gap between machine-readable digital twins and day-to-day human understanding.
+Markdown is the default for review and prompt context. YAML is available when an agent or model benefits from a more explicitly structured export.
 
 ## Why This Exists
 
-AAS content is structured and interoperable, but not always easy to inspect directly.
+AAS content is structured and interoperable, but it is not optimized for the way engineers actually use LLMs.
 
 `AAS-Readable` makes a digital twin easier to:
 
 - review in Git
-- publish as internal documentation
-- index with standard search tools
 - compare between revisions
 - paste into an LLM without extra cleanup
+- feed into agent workflows as readable Markdown or structured YAML
 
 In practice, it turns AAS data into something that helps answer:
 
@@ -25,6 +24,17 @@ In practice, it turns AAS data into something that helps answer:
 - What is currently happening in the twin?
 - What changed since the last export?
 - What should an LLM know before summarizing or reasoning over it?
+
+## Primary Use Case
+
+This package is for engineers who already have AAS data and want to use it in:
+
+- LLM prompts
+- agent pipelines
+- Git-based engineering review
+- lightweight retrieval and documentation workflows
+
+It is not trying to replace AAS-native servers, registries, or operational dashboards.
 
 ## What It Does
 
@@ -59,6 +69,12 @@ Export an AAS JSON file:
 
 ```bash
 aas-readable app_aas.json out/
+```
+
+Export YAML for an agent pipeline:
+
+```bash
+aas-readable app_aas.json out/ --output yaml
 ```
 
 Export an AASX package:
@@ -103,7 +119,9 @@ out/
 
 `llm-context.md` gives you a compact, structured summary intended to be pasted directly into an LLM prompt.
 
-Each submodel file gives you a readable Markdown rendering of the original structured content.
+Each submodel file gives you a readable engineering view of the original structured content.
+
+The YAML artifacts are intended for engineers building agentic tooling on top of AAS exports.
 
 ## Example Workflow
 
@@ -118,11 +136,12 @@ Then use the generated files for different jobs:
 - read `index.md` to understand the twin structure
 - inspect individual submodel Markdown files during engineering review
 - paste `llm-context.md` into an LLM for summarization, comparison, or Q&A
+- feed YAML output into an agent pipeline when structured context works better
 - commit the output directory to Git to diff twin revisions over time
 
-## Why This Is Useful For LLMs
+## Why This Is Useful For LLMs And Agents
 
-LLMs work better when the input is compact, hierarchical, and explicit about context.
+LLMs and agents work better when the input is compact, hierarchical, and explicit about context.
 
 `llm-context.md` is designed around that constraint. It keeps the most useful information in one predictable document:
 
@@ -139,14 +158,16 @@ That makes it useful for tasks such as:
 - spotting missing fields
 - building retrieval corpora from AAS exports
 
+When a downstream workflow needs a stricter structure, `--output yaml` or `--output both` provides the same normalized content in YAML.
+
 ## Who It Is For
 
 Most useful for:
 
 - software and integration engineers working with AAS data
-- teams building digital thread or documentation pipelines
+- teams building LLM or agent workflows around digital twins
 - people using Git to review twin changes
-- teams preparing AAS content for search or LLM use
+- teams preparing AAS content for search, retrieval, or prompt pipelines
 
 Less useful, in its current form, as a primary interface for:
 
@@ -154,7 +175,7 @@ Less useful, in its current form, as a primary interface for:
 - alarm monitoring
 - high-frequency operational dashboards
 
-This tool makes twins more readable. It does not replace a live operational UI.
+This tool makes AAS easier to use with AI systems. It does not replace a live operational UI.
 
 ## Installation
 
@@ -237,6 +258,8 @@ Export a JSON environment:
 ```bash
 aas-readable app_aas.json out/
 ```
+
+Default behavior writes Markdown, which is the recommended starting point for engineers reviewing and prompting over AAS content.
 
 Export a packaged twin:
 
@@ -321,7 +344,7 @@ The exporter follows a deliberately small pipeline:
 2. Normalize it into an internal document model.
 3. Render deterministic Markdown, YAML, or both.
 
-This keeps parsing concerns separate from rendering concerns, which is important for stable diffs and stable LLM context.
+This keeps parsing concerns separate from rendering concerns, which is important for stable diffs and stable AI context.
 
 ## Current Scope
 
