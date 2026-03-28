@@ -2,6 +2,8 @@
 
 `AAS-Readable` converts Asset Administration Shell content into clean Markdown for engineers, analysts, documentation teams, and LLM workflows.
 
+It can also emit YAML files for engineers feeding large structured AAS content into agents and LLMs.
+
 It is built for the gap between machine-readable digital twins and day-to-day human understanding.
 
 ## Why This Exists
@@ -37,6 +39,7 @@ It writes:
 - one Markdown file per submodel
 - `index.md` as a navigation page
 - `llm-context.md` as a compact prompt-ready summary
+- YAML files for the same artifacts when `--output yaml` or `--output both` is used
 
 ## Quick Start
 
@@ -82,6 +85,18 @@ out/
   functionaldata.md
   operationaldata.md
   lifecycledata.md
+```
+
+With `--output both`, the exporter also writes:
+
+```text
+out/
+  index.yaml
+  llm-context.yaml
+  staticdata.yaml
+  functionaldata.yaml
+  operationaldata.yaml
+  lifecycledata.yaml
 ```
 
 `index.md` gives you a quick overview of the exported asset shells and submodels.
@@ -212,7 +227,7 @@ Then run one of the install commands above.
 ## CLI
 
 ```bash
-aas-readable INPUT_PATH OUTPUT_DIR [--include SUBMODEL_NAME] [--overwrite]
+aas-readable INPUT_PATH OUTPUT_DIR [--include SUBMODEL_NAME] [--overwrite] [--output {markdown,yaml,both}]
 ```
 
 ### Examples
@@ -243,6 +258,18 @@ Reuse an existing output directory:
 aas-readable machine.aasx out/ --overwrite
 ```
 
+Export YAML only for agent and LLM workflows:
+
+```bash
+aas-readable machine.aasx out/ --output yaml
+```
+
+Export both Markdown and YAML:
+
+```bash
+aas-readable machine.aasx out/ --output both
+```
+
 ## Input Shapes
 
 ### Plain AAS JSON
@@ -266,7 +293,7 @@ It also supports records like this:
 }
 ```
 
-If `canonical_text` is present, it is included in `llm-context.md`.
+If `canonical_text` is present, it is included in `llm-context.md` for Markdown outputs and `llm-context.yaml` for YAML outputs.
 
 ## Example Export
 
@@ -278,6 +305,12 @@ That folder contains:
 - [llm-context.md](examples/meng-app-aas/llm-context.md)
 - one Markdown file per submodel
 
+When YAML output is selected, exports also include:
+
+- `index.yaml`
+- `llm-context.yaml`
+- one YAML file per submodel
+
 The example was generated from a related AAS dataset containing plain JSON environments and wrapped JSON records with `canonical_text`.
 
 ## How It Works
@@ -286,7 +319,7 @@ The exporter follows a deliberately small pipeline:
 
 1. Load the input source.
 2. Normalize it into an internal document model.
-3. Render deterministic Markdown.
+3. Render deterministic Markdown, YAML, or both.
 
 This keeps parsing concerns separate from rendering concerns, which is important for stable diffs and stable LLM context.
 
@@ -300,6 +333,7 @@ Included:
 - recursive rendering of nested submodel elements
 - `index.md`
 - `llm-context.md`
+- YAML exports for agent and LLM ingestion
 
 Not included yet:
 

@@ -17,6 +17,7 @@ from .markdown import (
     render_llm_context_markdown,
     render_submodel_markdown,
 )
+from .yaml_render import render_index_yaml, render_llm_context_yaml, render_submodel_yaml
 
 
 def export_input_to_markdown(
@@ -24,8 +25,9 @@ def export_input_to_markdown(
     output_dir: Path,
     include: list[str] | None = None,
     overwrite: bool = False,
+    output_format: str = "markdown",
 ) -> ExportSummary:
-    """Export a single AAS source into a directory of Markdown files."""
+    """Export a single AAS source into Markdown, YAML, or both."""
 
     input_path = input_path.expanduser().resolve()
     output_dir = output_dir.expanduser().resolve()
@@ -35,6 +37,8 @@ def export_input_to_markdown(
         raise FileNotFoundError(f"Input file does not exist: {input_path}")
     if input_path.suffix.lower() not in {".aasx", ".json"}:
         raise ValueError(f"Expected an .aasx or .json file, got: {input_path.name}")
+    if output_format not in {"markdown", "yaml", "both"}:
+        raise ValueError(f"Unsupported output format: {output_format}")
     if output_dir.exists() and any(output_dir.iterdir()) and not overwrite:
         raise FileExistsError(
             f"Output directory is not empty: {output_dir}. Use --overwrite to continue."
@@ -48,25 +52,53 @@ def export_input_to_markdown(
         raise ValueError("No submodels matched the requested export.")
 
     written_files: list[str] = []
+    written_yaml_files: list[str] = []
     used_names: set[str] = set()
+    write_markdown = output_format in {"markdown", "both"}
+    write_yaml = output_format in {"yaml", "both"}
 
     for submodel in submodels:
         filename = _unique_filename(_slugify(submodel.id_short or submodel.id), used_names)
-        path = output_dir / f"{filename}.md"
-        path.write_text(render_submodel_markdown(submodel), encoding="utf-8")
-        written_files.append(path.name)
+        if write_markdown:
+            markdown_path = output_dir / f"{filename}.md"
+            markdown_path.write_text(render_submodel_markdown(submodel), encoding="utf-8")
+            written_files.append(markdown_path.name)
 
-    index_path = output_dir / "index.md"
-    index_path.write_text(
-        render_index_markdown(document=document, submodels=submodels, markdown_files=written_files),
-        encoding="utf-8",
-    )
+        if write_yaml:
+            yaml_path = output_dir / f"{filename}.yaml"
+            yaml_path.write_text(render_submodel_yaml(submodel), encoding="utf-8")
+            written_yaml_files.append(yaml_path.name)
 
-    llm_context_path = output_dir / "llm-context.md"
-    llm_context_path.write_text(
-        render_llm_context_markdown(document=document, submodels=submodels),
-        encoding="utf-8",
-    )
+    if write_markdown:
+        index_path = output_dir / "index.md"
+        index_path.write_text(
+            render_index_markdown(document=document, submodels=submodels, markdown_files=written_files),
+            encoding="utf-8",
+        )
+
+        llm_context_path = output_dir / "llm-context.md"
+        llm_context_path.write_text(
+            render_llm_context_markdown(document=document, submodels=submodels),
+            encoding="utf-8",
+        )
+
+    if write_yaml:
+        index_yaml_path = output_dir / "index.yaml"
+        index_yaml_path.write_text(
+            render_index_yaml(
+                document=document,
+                submodels=submodels,
+                markdown_files=written_files,
+                yaml_files=written_yaml_files,
+            ),
+            encoding="utf-8",
+        )
+
+        llm_context_yaml_path = output_dir / "llm-context.yaml"
+        llm_context_yaml_path.write_text(
+            render_llm_context_yaml(document=document, submodels=submodels),
+            encoding="utf-8",
+        )
 
     return ExportSummary(
         input_path=input_path,
@@ -82,12 +114,14 @@ def export_aasx_to_markdown(
     output_dir: Path,
     include: list[str] | None = None,
     overwrite: bool = False,
+    output_format: str = "markdown",
 ) -> ExportSummary:
     return export_input_to_markdown(
         input_path=aasx_path,
         output_dir=output_dir,
         include=include,
         overwrite=overwrite,
+        output_format=output_format,
     )
 
 
