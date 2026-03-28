@@ -6,6 +6,24 @@ It converts machine-oriented AAS environments into compact Markdown and YAML out
 
 Markdown is the default for review and prompt context. YAML is available when an agent or model benefits from a more explicitly structured export.
 
+## One-Line Contract
+
+Input:
+
+- `.json` AAS environments
+- wrapped `.json` records with AAS under `aas`
+- `.aasx` packages with the `aasx` extra installed
+
+Output:
+
+- Markdown by default
+- YAML with `--output yaml`
+- both with `--output both`
+
+Primary goal:
+
+- help engineers use AAS data in LLMs, agents, and review workflows
+
 ## Why This Exists
 
 AAS content is structured and interoperable, but it is not optimized for the way engineers actually use LLMs.
@@ -35,6 +53,25 @@ This package is for engineers who already have AAS data and want to use it in:
 - lightweight retrieval and documentation workflows
 
 It is not trying to replace AAS-native servers, registries, or operational dashboards.
+
+## Quick Decision Guide
+
+Use `--output markdown` when you want:
+
+- prompt-ready context
+- Git-friendly diffs
+- human review
+
+Use `--output yaml` when you want:
+
+- structured agent input
+- explicit nesting
+- downstream automation
+
+Use `--output both` when you want:
+
+- human-readable review output
+- agent-friendly structured output from the same export
 
 ## What It Does
 
@@ -89,7 +126,19 @@ Verify the CLI:
 aas-readable --help
 ```
 
-## What You Get
+## CLI Summary
+
+```bash
+aas-readable INPUT_PATH OUTPUT_DIR [--include SUBMODEL_NAME] [--overwrite] [--output {markdown,yaml,both}]
+```
+
+Defaults:
+
+- `--output markdown`
+- export all submodels
+- fail if `OUTPUT_DIR` is non-empty unless `--overwrite` is used
+
+## Output Files
 
 Typical output:
 
@@ -122,6 +171,25 @@ out/
 Each submodel file gives you a readable engineering view of the original structured content.
 
 The YAML artifacts are intended for engineers building agentic tooling on top of AAS exports.
+
+## Output Matrix
+
+`--output markdown`
+
+- per-submodel `.md`
+- `index.md`
+- `llm-context.md`
+
+`--output yaml`
+
+- per-submodel `.yaml`
+- `index.yaml`
+- `llm-context.yaml`
+
+`--output both`
+
+- all Markdown artifacts
+- all YAML artifacts
 
 ## Example Workflow
 
@@ -245,13 +313,7 @@ source .venv/bin/activate
 
 Then run one of the install commands above.
 
-## CLI
-
-```bash
-aas-readable INPUT_PATH OUTPUT_DIR [--include SUBMODEL_NAME] [--overwrite] [--output {markdown,yaml,both}]
-```
-
-### Examples
+## Examples
 
 Export a JSON environment:
 
@@ -318,6 +380,14 @@ It also supports records like this:
 
 If `canonical_text` is present, it is included in `llm-context.md` for Markdown outputs and `llm-context.yaml` for YAML outputs.
 
+## Behavior Summary
+
+- the exporter reads one input file per invocation
+- submodel names can be filtered with repeated `--include`
+- submodel filenames are slugified and deduplicated
+- nested submodel elements are rendered recursively
+- Markdown and YAML are generated from the same normalized internal model
+
 ## Example Export
 
 The repository includes a generated example in [examples/meng-app-aas](examples/meng-app-aas).
@@ -336,7 +406,7 @@ When YAML output is selected, exports also include:
 
 The example was generated from a related AAS dataset containing plain JSON environments and wrapped JSON records with `canonical_text`.
 
-## How It Works
+## Internal Model
 
 The exporter follows a deliberately small pipeline:
 
@@ -345,6 +415,12 @@ The exporter follows a deliberately small pipeline:
 3. Render deterministic Markdown, YAML, or both.
 
 This keeps parsing concerns separate from rendering concerns, which is important for stable diffs and stable AI context.
+
+Renderer responsibilities:
+
+- `markdown.py`: human-readable review and prompt outputs
+- `yaml_render.py`: structured outputs for agents and automation
+- `exporter.py`: input loading, normalization, and file writing
 
 ## Current Scope
 

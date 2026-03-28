@@ -1,98 +1,131 @@
-# CLI Plan
+# CLI Contract
+
+This document describes the current CLI behavior of `aas-readable`.
+
+## Intent
+
+The CLI is designed to help engineers turn AAS data into outputs that are easier to use with:
+
+- LLM prompts
+- agent pipelines
+- Git review
+- lightweight documentation
 
 ## Command
 
 ```bash
-aas-readable INPUT_PATH OUTPUT_DIR [--include SUBMODEL_NAME] [--overwrite]
+aas-readable INPUT_PATH OUTPUT_DIR [--include SUBMODEL_NAME] [--overwrite] [--output {markdown,yaml,both}]
 ```
 
-## Behavior
+## Defaults
 
-- read a single `.aasx` package or AAS JSON environment
-- extract all submodels from the contained AAS
-- filter submodels by `--include` when requested
-- write one Markdown file per submodel
-- write an `index.md` summarizing the exported asset and linking to submodels
-- write an `llm-context.md` file optimized for prompt input
+- default output format: `markdown`
+- default behavior: export all submodels
+- output directory must be empty unless `--overwrite` is passed
+
+## Inputs
+
+Supported input types:
+
+- `.json`: plain AAS environments
+- `.json`: wrapped records with the AAS stored under `aas`
+- `.aasx`: AASX packages when the `aasx` extra is installed
+
+Wrapped JSON shape:
+
+```json
+{
+  "canonical_text": "...",
+  "aas": {
+    "assetAdministrationShells": [],
+    "submodels": []
+  }
+}
+```
+
+## Outputs
+
+### `--output markdown`
+
+Writes:
+
+- one `.md` file per exported submodel
+- `index.md`
+- `llm-context.md`
+
+Use this when the main goal is:
+
+- review
+- prompting
+- Git diffs
+
+### `--output yaml`
+
+Writes:
+
+- one `.yaml` file per exported submodel
+- `index.yaml`
+- `llm-context.yaml`
+
+Use this when the main goal is:
+
+- agent ingestion
+- structured downstream processing
+- workflows that benefit from explicit nesting
+
+### `--output both`
+
+Writes both artifact sets.
+
+Use this when a workflow needs:
+
+- human-readable review output
+- structured agent-facing output
+
+## Filtering
+
+`--include` matches submodel names after normalization.
+
+Normalization rules:
+
+- lowercase the name
+- remove non-alphanumeric characters
+
+Example:
+
+- `Operational Data`
+- `operationaldata`
+- `operational-data`
+
+All match the same submodel.
 
 ## Output Conventions
 
-### File naming
+- filenames are lowercase and slugified
+- filename collisions are resolved with `-2`, `-3`, and so on
+- nested submodel elements are rendered recursively
+- wrapped `canonical_text` is included in the LLM-context artifact for the selected output format
 
-- slugified submodel display name
-- deterministic lowercase filenames
-- collision handling by suffixing `-2`, `-3`, and so on
+## Internal Structure
 
-### Markdown shape
+The CLI uses a small pipeline:
 
-Each submodel file should follow this structure:
+1. load input
+2. normalize it into an internal document model
+3. render Markdown, YAML, or both
 
-```md
-# Technical Data
+Current module responsibilities:
 
-## Metadata
+- `cli.py`: argument parsing and user-facing errors
+- `exporter.py`: load, normalize, and write outputs
+- `markdown.py`: Markdown rendering
+- `yaml_render.py`: YAML rendering
 
-- Identifier: `...`
-- Kind: `INSTANCE`
-- Semantic ID: `...`
+## Non-Goals
 
-## Elements
+The CLI does not currently try to provide:
 
-### Rated Voltage
-
-- Type: `Property`
-- Value: `400`
-- Unit: `V`
-```
-
-The exact field set will vary by submodel element type, but the layout should stay stable so that diffs stay readable.
-
-## Lightweight Architecture
-
-### `cli.py`
-
-Argument parsing and user-facing errors.
-
-### `exporter.py`
-
-Load the source file, normalize it into an internal document model, and write files.
-
-### `markdown.py`
-
-Pure rendering logic. This should stay independent of BaSyx-specific imports where possible.
-
-## Parsing Strategy
-
-Use the BaSyx Python SDK only at the package boundary for `.aasx` input:
-
-1. `AASXReader` reads the package into an object store.
-2. iterate identifiable objects and select `Submodel` instances
-3. recursively walk submodel elements
-4. project them into plain text sections
-
-This keeps the repo light and avoids building a second AAS implementation.
-
-## MVP Boundaries
-
-Include:
-
-- AASX read path
-- AAS JSON read path
-- per-submodel Markdown export
-- recursive handling of common nested submodel elements
-- stable filenames, index generation, and LLM context generation
-
-Defer:
-
-- full semantic-id aware formatting
-- specialized renderers per IDTA template
-- attachment extraction and image embedding
-- reverse conversion from Markdown back to AAS
-- live server or UI
-
-## Suggested Next Milestones
-
-1. Validate the reader against a real `.aasx` sample for the three target submodels.
-2. Add submodel-specific formatters for Technical Data, Documentation, and Carbon Footprint.
-3. Export referenced supplementary files into an `assets/` folder and link them from Markdown.
-4. Add snapshot tests with representative AASX fixtures.
+- round-trip editing back into AAS
+- live dashboards
+- attachment extraction
+- template-specific semantic formatting
