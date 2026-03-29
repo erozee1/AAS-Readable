@@ -1,16 +1,20 @@
-"""Python API for converting AAS and AASX data into readable LLM and agent context."""
+"""Python API for converting AAS and AASX data into lossless, deterministic agent and review views."""
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 
 from .exporter import (
     export_aasx_to_markdown,
     export_input,
     export_input_to_markdown,
     export_path,
+    load_document,
+    load_document_from_payload,
     load_export_document,
     load_export_document_from_payload,
+    render_document,
     render_llm_context,
     render_submodel_bundle,
+    render_submodels,
 )
 
 __all__ = [
@@ -19,8 +23,12 @@ __all__ = [
     "export_input_to_markdown",
     "export_aasx_to_markdown",
     "export_path",
+    "load_document",
+    "load_document_from_payload",
     "load_export_document",
     "load_export_document_from_payload",
+    "render_document",
     "render_llm_context",
     "render_submodel_bundle",
+    "render_submodels",
 ]

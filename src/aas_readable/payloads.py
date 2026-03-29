@@ -1,59 +1,70 @@
-"""Machine-facing payload builders used by JSON, YAML, and LLM-context renderers."""
+"""Deterministic view builders for lossless, agent, brief, and review outputs."""
 
 from __future__ import annotations
 
 from collections import defaultdict
-import re
 from typing import Any, Callable, Iterable
 
-from .document import AssetShellDocument, ElementDocument, ExportDocument, ReferenceDocument, SubmodelDocument
+from .document import AssetShellIR, DocumentIR, ElementIR, QualifierIR, ReferenceIR, SubmodelIR
 from .util import stringify
 
-PayloadHook = Callable[[str, dict[str, Any], ExportDocument], dict[str, Any] | None]
+PayloadHook = Callable[[str, dict[str, Any], DocumentIR], dict[str, Any] | None]
 
-_EQUIPMENT_FIELDS = {"supportedrobots", "supportedendeffectors"}
-_MATERIAL_FIELDS = {"supportedmaterials"}
-_SENSOR_FIELDS = {"supportedsensors"}
-_CAPABILITY_FIELDS = {"capabilities", "supportedprocesses", "functions", "appcapabilities"}
-_LIFECYCLE_TERMS = ("lifecycle", "maintenance", "uptime", "service", "error", "health")
-_KPI_TERMS = ("cycle", "cpu", "memory", "throughput", "availability", "oee", "scrap", "load", "latency")
+_IDENTIFIER_FIELDS = {
+    "appname": "app_name",
+    "appid": "app_id",
+}
+_LIST_CATEGORY_FIELDS = {
+    "capabilities": "capabilities",
+    "supportedprocesses": "capabilities",
+    "functions": "capabilities",
+    "appcapabilities": "capabilities",
+    "supportedmaterials": "materials",
+    "supportedrobots": "robots",
+    "supportedsensors": "sensors",
+    "supportedendeffectors": "end_effectors",
+}
+_RANGE_KEYS = frozenset({"min", "minimum", "max", "maximum", "nominal", "value"})
 
 
 def build_index_payload(
-    document: ExportDocument,
-    submodels: list[SubmodelDocument],
+    document: DocumentIR,
+    submodels: list[SubmodelIR],
     markdown_files: list[str],
     yaml_files: list[str],
     json_files: list[str],
-    profile: str = "agent-structured",
+    view: str = "review",
     hooks: list[PayloadHook] | None = None,
 ) -> dict[str, Any]:
     payload = {
-        "schema_version": document.schema_version,
-        "profile": profile,
+        "schema_version": document.source.schema_version,
+        "view": view,
         "source": {
-            "file": document.source_path.name,
-            "format": document.source_kind,
+            "file": document.source.file,
+            "input_kind": document.source.input_kind,
+            "wrapper_kind": document.source.wrapper_kind,
             "asset_shell_count": len(document.asset_shells),
             "exported_submodel_count": len(submodels),
         },
-        "assets": [_asset_shell_payload(asset_shell, compact=True) for asset_shell in document.asset_shells],
+        "document_artifacts": _artifact_names(
+            "document",
+            markdown_files=["document.md"] if markdown_files else [],
+            yaml_files=["document.yaml"] if yaml_files else [],
+            json_files=["document.json"] if json_files else [],
+        ),
         "submodels": [],
-        "artifacts": {
-            "llm_context": _artifact_names("llm-context", markdown_files=["llm-context.md"] if markdown_files else [], yaml_files=["llm-context.yaml"] if yaml_files else [], json_files=["llm-context.json"] if json_files else []),
-        },
-        "validation": build_validation_payload(document, submodels),
     }
+    if markdown_files:
+        payload["document_markdown_file"] = "document.md"
     if yaml_files:
-        payload["llm_context_file"] = "llm-context.yaml"
+        payload["document_yaml_file"] = "document.yaml"
     if json_files:
-        payload["llm_context_json_file"] = "llm-context.json"
+        payload["document_json_file"] = "document.json"
 
     for index, submodel in enumerate(submodels):
         entry = {
             "id": submodel.id,
             "id_short": submodel.id_short,
-            "synopsis": build_submodel_synopsis(submodel),
             "asset_shell_ids": list(submodel.asset_shell_ids),
             "artifacts": _artifact_names(
                 _artifact_slug(
@@ -67,76 +78,95 @@ def build_index_payload(
                 json_files=json_files[index:index + 1],
             ),
         }
-        if index < len(markdown_files):
-            entry["markdown_file"] = markdown_files[index]
-        if index < len(yaml_files):
-            entry["yaml_file"] = yaml_files[index]
-        if index < len(json_files):
-            entry["json_file"] = json_files[index]
         payload["submodels"].append(entry)
     return _apply_hooks("index", payload, document, hooks)
 
 
-def build_llm_context_payload(
-    document: ExportDocument,
-    submodels: list[SubmodelDocument],
-    profile: str = "agent-structured",
+def build_document_payload(
+    document: DocumentIR,
+    submodels: list[SubmodelIR],
+    view: str = "agent",
     hooks: list[PayloadHook] | None = None,
 ) -> dict[str, Any]:
     validation = build_validation_payload(document, submodels)
-    engineering_views = build_engineering_views(submodels)
-    prompt_text = build_prompt_text(document, submodels, validation, engineering_views)
-    payload: dict[str, Any] = {
-        "schema_version": document.schema_version,
-        "profile": profile,
+    base: dict[str, Any] = {
+        "schema_version": document.source.schema_version,
+        "view": view,
         "source": {
-            "file": document.source_path.name,
-            "format": document.source_kind,
+            "file": document.source.file,
+            "input_kind": document.source.input_kind,
+            "wrapper_kind": document.source.wrapper_kind,
         },
-        "prompt_text": prompt_text,
-        "asset_shells": [_asset_shell_payload(asset_shell, compact=profile == "prompt-compact") for asset_shell in document.asset_shells],
-        "submodels": [_submodel_summary_payload(submodel, compact=profile == "prompt-compact") for submodel in submodels],
-        "engineering_views": engineering_views,
-        "validation": validation,
-        "known_gaps": validation.get("known_gaps", []),
     }
-    if document.optional_narrative:
-        payload["optional_narrative"] = document.optional_narrative.strip()
-    return _apply_hooks("llm-context", payload, document, hooks)
+    if document.optional_external_narrative:
+        base["optional_external_narrative"] = document.optional_external_narrative.strip()
+
+    if view == "lossless":
+        payload = {
+            **base,
+            "asset_shells": [_asset_shell_lossless(asset_shell) for asset_shell in document.asset_shells],
+            "submodels": [_submodel_lossless(submodel) for submodel in submodels],
+            "element_index": {
+                path: _element_lossless(element)
+                for path, element in sorted(document.element_index.items())
+            },
+        }
+    elif view == "agent":
+        payload = {
+            **base,
+            "document": build_agent_document(document, submodels, validation, include_trace=False),
+            "validation": validation,
+        }
+    elif view == "brief":
+        agent_document = build_agent_document(document, submodels, validation, include_trace=False)
+        payload = {
+            **base,
+            "brief_text": build_brief_text(agent_document, validation, document.optional_external_narrative),
+            "document": agent_document,
+            "validation": validation,
+        }
+    elif view == "review":
+        payload = {
+            **base,
+            "document": build_agent_document(document, submodels, validation, include_trace=True),
+            "validation": validation,
+        }
+    else:
+        raise ValueError(f"Unsupported view: {view}")
+    return _apply_hooks("document", payload, document, hooks)
 
 
-def build_submodel_payload(
-    submodel: SubmodelDocument,
-    profile: str = "agent-structured",
-) -> dict[str, Any]:
-    payload: dict[str, Any] = {
+def build_submodel_payload(submodel: SubmodelIR, view: str = "review") -> dict[str, Any]:
+    if view == "lossless":
+        return _submodel_lossless(submodel)
+    sections = _submodel_agent_sections(submodel)
+    payload = {
         "id": submodel.id,
         "id_short": submodel.id_short,
-        "elements": [
-            _brief_element_payload(element) if profile == "prompt-compact" else _element_payload(element)
-            for element in submodel.elements
-        ],
+        "kind": submodel.kind,
+        "semantic_refs": list(submodel.semantic_refs),
+        "asset_shell_ids": list(submodel.asset_shell_ids),
+        "description": submodel.description,
+        "sections": sections,
     }
-    payload["synopsis"] = build_submodel_synopsis(submodel)
-    payload["asset_shell_ids"] = list(submodel.asset_shell_ids)
-    payload["source"] = {
-        "file": submodel.source_file,
-        "format": submodel.source_kind,
-    }
-    _set_if_present(payload, "kind", submodel.kind)
-    _set_if_present(payload, "semantic_id", submodel.semantic_id)
-    if submodel.semantic_ids:
-        payload["semantic_ids"] = list(submodel.semantic_ids)
-    _set_if_present(payload, "description", submodel.description)
-    return payload
+    if view == "review":
+        payload["source_pointer"] = _source_pointer_payload(submodel.source_pointer)
+        payload["elements"] = [_element_review(child) for child in submodel.elements]
+    return _strip_empty(payload)
 
 
-def build_validation_payload(document: ExportDocument, submodels: list[SubmodelDocument]) -> dict[str, Any]:
+def build_validation_payload(document: DocumentIR, submodels: list[SubmodelIR]) -> dict[str, Any]:
     flat_elements = [element for submodel in submodels for element in iter_elements(submodel.elements)]
-    missing_submodel_semantic_ids = [submodel.id_short for submodel in submodels if not submodel.semantic_ids]
-    missing_element_semantic_ids = [element.path for element in flat_elements if not element.semantic_ids]
-    empty_values = [element.path for element in flat_elements if not element.children and not element.value_text]
-    numeric_without_unit = [element.path for element in flat_elements if element.number_value is not None and not element.normalized_unit]
+    missing_submodel_semantic_refs = [submodel.id_short for submodel in submodels if not submodel.semantic_refs]
+    missing_element_semantic_refs = [element.path for element in flat_elements if not element.semantic_refs]
+    empty_values = [
+        element.path
+        for element in flat_elements
+        if not element.children and element.display_value == "" and element.typed_value in (None, "", [], {}, ())
+    ]
+    numeric_without_unit = [
+        element.path for element in flat_elements if _element_has_numeric_fact(element) and not element.normalized_unit
+    ]
 
     units_by_field: dict[str, set[str]] = defaultdict(set)
     for element in flat_elements:
@@ -148,19 +178,13 @@ def build_validation_payload(document: ExportDocument, submodels: list[SubmodelD
         if len(units) > 1
     ]
 
-    known_submodels = {submodel.id for submodel in submodels}
+    known_submodels = {submodel.id for submodel in submodels if submodel.id}
     known_ids = {
-        asset_shell.id
-        for asset_shell in document.asset_shells
-        if asset_shell.id
-    } | known_submodels | {
-        asset_shell.global_asset_id
-        for asset_shell in document.asset_shells
-        if asset_shell.global_asset_id
+        asset_shell.id for asset_shell in document.asset_shells if asset_shell.id
     } | {
-        element.stable_key
-        for element in flat_elements
-        if element.stable_key
+        asset_shell.global_asset_id for asset_shell in document.asset_shells if asset_shell.global_asset_id
+    } | known_submodels | {
+        element.stable_key for element in flat_elements if element.stable_key
     }
 
     missing_submodel_references = []
@@ -189,22 +213,22 @@ def build_validation_payload(document: ExportDocument, submodels: list[SubmodelD
                 )
 
     known_gaps = []
-    if missing_submodel_semantic_ids:
-        known_gaps.append(f"{len(missing_submodel_semantic_ids)} submodel(s) are missing semantic IDs.")
-    if missing_element_semantic_ids:
-        known_gaps.append(f"{len(missing_element_semantic_ids)} element(s) are missing semantic IDs.")
+    if missing_submodel_semantic_refs:
+        known_gaps.append(f"{len(missing_submodel_semantic_refs)} submodel(s) are missing semantic references.")
+    if missing_element_semantic_refs:
+        known_gaps.append(f"{len(missing_element_semantic_refs)} element(s) are missing semantic references.")
     if unit_inconsistencies:
-        known_gaps.append(f"{len(unit_inconsistencies)} field(s) use inconsistent units.")
+        known_gaps.append(f"{len(unit_inconsistencies)} field group(s) use inconsistent units.")
     if missing_submodel_references or unresolved_references:
-        known_gaps.append("Some references could not be resolved within the export.")
+        known_gaps.append("Some references could not be resolved within the document.")
 
     return {
-        "optional_narrative_present": bool(document.optional_narrative.strip()),
-        "missing_semantic_ids": {
-            "submodels": missing_submodel_semantic_ids,
-            "elements": missing_element_semantic_ids[:25],
-            "submodel_count": len(missing_submodel_semantic_ids),
-            "element_count": len(missing_element_semantic_ids),
+        "optional_external_narrative_present": bool(document.optional_external_narrative.strip()),
+        "missing_semantic_refs": {
+            "submodels": missing_submodel_semantic_refs,
+            "elements": missing_element_semantic_refs[:25],
+            "submodel_count": len(missing_submodel_semantic_refs),
+            "element_count": len(missing_element_semantic_refs),
         },
         "unit_inconsistencies": unit_inconsistencies,
         "empty_values": empty_values[:25],
@@ -217,238 +241,369 @@ def build_validation_payload(document: ExportDocument, submodels: list[SubmodelD
     }
 
 
-def build_engineering_views(submodels: list[SubmodelDocument]) -> dict[str, Any]:
-    flat_elements = [(submodel, element) for submodel in submodels for element in iter_elements(submodel.elements)]
-    capability_sheet = _collect_token_sheet(flat_elements, _CAPABILITY_FIELDS)
-    equipment_sheet = _collect_token_sheet(flat_elements, _EQUIPMENT_FIELDS)
-    material_sheet = _collect_token_sheet(flat_elements, _MATERIAL_FIELDS)
-    sensor_sheet = _collect_token_sheet(flat_elements, _SENSOR_FIELDS)
-    lifecycle_digest = _collect_digest(flat_elements, _LIFECYCLE_TERMS, max_items=8)
-    operational_kpis = _collect_digest(flat_elements, _KPI_TERMS, max_items=10)
-    numeric_facts = _collect_numeric_facts(flat_elements)
-    return {
-        "capability_sheet": capability_sheet,
-        "equipment_compatibility_sheet": equipment_sheet,
-        "material_compatibility_sheet": material_sheet,
-        "sensor_compatibility_sheet": sensor_sheet,
-        "lifecycle_digest": lifecycle_digest,
-        "operational_kpi_digest": operational_kpis,
-        "numeric_facts": numeric_facts,
-    }
-
-
-def build_prompt_text(
-    document: ExportDocument,
-    submodels: list[SubmodelDocument],
+def build_agent_document(
+    document: DocumentIR,
+    submodels: list[SubmodelIR],
     validation: dict[str, Any],
-    engineering_views: dict[str, Any],
-) -> str:
-    segments: list[str] = []
-    if document.optional_narrative:
-        segments.append(document.optional_narrative.strip())
-    else:
-        names = ", ".join(submodel.id_short for submodel in submodels[:4] if submodel.id_short)
-        if names:
-            segments.append(f"AAS export covering submodels: {names}.")
+    include_trace: bool,
+) -> dict[str, Any]:
+    element_entries = [(submodel, element) for submodel in submodels for element in iter_elements(submodel.elements)]
+    identifiers: dict[str, Any] = {
+        "assets": [_asset_shell_agent(asset_shell) for asset_shell in document.asset_shells],
+        "fields": {},
+    }
+    compatibility: dict[str, list[dict[str, Any]]] = {
+        "capabilities": [],
+        "materials": [],
+        "robots": [],
+        "sensors": [],
+        "end_effectors": [],
+    }
+    numeric_facts: list[dict[str, Any]] = []
+    operations: list[dict[str, Any]] = []
+    generic_facts: list[dict[str, Any]] = []
 
-    capability_items = engineering_views.get("capability_sheet", {}).get("items", [])
-    equipment_items = engineering_views.get("equipment_compatibility_sheet", {}).get("items", [])
-    material_items = engineering_views.get("material_compatibility_sheet", {}).get("items", [])
-    numeric_facts = engineering_views.get("numeric_facts", [])
+    for submodel, element in element_entries:
+        normalized = _normalize_name(element.id_short)
+        if normalized in _IDENTIFIER_FIELDS and element.display_value:
+            identifiers["fields"].setdefault(
+                _IDENTIFIER_FIELDS[normalized],
+                _fact_entry(submodel, element, include_trace),
+            )
+            continue
+        if normalized in _LIST_CATEGORY_FIELDS:
+            compatibility[_LIST_CATEGORY_FIELDS[normalized]].extend(
+                _fact_entries_from_element(submodel, element, include_trace)
+            )
+            continue
+        if _element_has_numeric_fact(element):
+            numeric_facts.append(_numeric_fact_entry(submodel, element, include_trace))
+            continue
+        if element.model_type == "Operation":
+            operations.append(_fact_entry(submodel, element, include_trace))
+            continue
+        if element.display_value:
+            generic_facts.append(_fact_entry(submodel, element, include_trace))
 
-    if capability_items:
-        segments.append("Capabilities: " + ", ".join(capability_items[:8]) + ".")
-    if equipment_items:
-        segments.append("Equipment compatibility: " + ", ".join(equipment_items[:8]) + ".")
-    if material_items:
-        segments.append("Material compatibility: " + ", ".join(material_items[:8]) + ".")
+    for key, items in compatibility.items():
+        compatibility[key] = _dedupe_fact_entries(items)
+    numeric_facts = _dedupe_numeric_facts(numeric_facts)
+    generic_facts = _dedupe_fact_entries(generic_facts)
+
+    payload = {
+        "identifiers": identifiers,
+        "compatibility": compatibility,
+        "numeric_facts": numeric_facts,
+        "operations": operations,
+        "generic_facts": generic_facts,
+        "submodels": [_submodel_agent_summary(submodel, include_trace) for submodel in submodels],
+        "gaps": validation.get("known_gaps", []),
+    }
+    if include_trace:
+        payload["trace"] = {
+            "element_count": len(document.element_index),
+            "element_paths": sorted(document.element_index.keys()),
+        }
+    return _strip_empty(payload)
+
+
+def build_brief_text(agent_document: dict[str, Any], validation: dict[str, Any], optional_external_narrative: str) -> str:
+    lines: list[str] = []
+    if optional_external_narrative:
+        lines.append(optional_external_narrative.strip())
+        lines.append("")
+
+    fields = agent_document.get("identifiers", {}).get("fields", {})
+    assets = agent_document.get("identifiers", {}).get("assets", [])
+    if fields or assets:
+        lines.append("Identifiers:")
+        if "app_name" in fields:
+            lines.append(f"- AppName: {fields['app_name']['value']}")
+        if "app_id" in fields:
+            lines.append(f"- AppID: {fields['app_id']['value']}")
+        for asset in assets:
+            if asset.get("id_short"):
+                lines.append(f"- AssetShell: {asset['id_short']}")
+            if asset.get("global_asset_id"):
+                lines.append(f"- GlobalAssetId: {asset['global_asset_id']}")
+        lines.append("")
+
+    compatibility = agent_document.get("compatibility", {})
+    label_map = {
+        "capabilities": "Capabilities",
+        "materials": "Materials",
+        "robots": "Robots",
+        "sensors": "Sensors",
+        "end_effectors": "EndEffectors",
+    }
+    for key in ("capabilities", "materials", "robots", "sensors", "end_effectors"):
+        items = compatibility.get(key, [])
+        if not items:
+            continue
+        lines.append(f"{label_map[key]}:")
+        for item in items:
+            lines.append(f"- {item['value']}")
+        lines.append("")
+
+    numeric_facts = agent_document.get("numeric_facts", [])
     if numeric_facts:
-        rendered = []
-        for fact in numeric_facts[:6]:
-            tail = f" {fact['unit']}" if fact.get("unit") else ""
+        lines.append("NumericFacts:")
+        for fact in numeric_facts:
             if fact.get("min_value") is not None and fact.get("max_value") is not None and fact["min_value"] != fact["max_value"]:
-                rendered.append(f"{fact['label']} {fact['min_value']}-{fact['max_value']}{tail}")
-            elif fact.get("number_value") is not None:
-                rendered.append(f"{fact['label']} {fact['number_value']}{tail}")
-        if rendered:
-            segments.append("Numeric facts: " + ", ".join(rendered) + ".")
+                value = f"{fact['min_value']} to {fact['max_value']}"
+            else:
+                value = stringify(fact.get("nominal_value"))
+            unit = f" {fact['unit']}" if fact.get("unit") else ""
+            lines.append(f"- {fact['label']}: {value}{unit}".rstrip())
+        lines.append("")
+
     if validation.get("known_gaps"):
-        segments.append("Known gaps: " + " ".join(validation["known_gaps"]))
-    return " ".join(part for part in segments if part).strip()
+        lines.append("KnownGaps:")
+        for gap in validation["known_gaps"]:
+            lines.append(f"- {gap}")
+
+    return "\n".join(lines).strip()
 
 
-def build_submodel_synopsis(submodel: SubmodelDocument, max_items: int = 4) -> str:
-    items = []
-    for element in iter_elements(submodel.elements):
-        if element.children:
-            continue
-        if not element.value_text:
-            continue
-        items.append(f"{element.id_short}={element.value_text}")
-        if len(items) >= max_items:
-            break
-    if not items:
-        return submodel.description or submodel.id_short
-    return "; ".join(items)
-
-
-def iter_elements(elements: Iterable[ElementDocument]) -> Iterable[ElementDocument]:
+def iter_elements(elements: Iterable[ElementIR]) -> Iterable[ElementIR]:
     for element in elements:
         yield element
         yield from iter_elements(element.children)
 
 
-def _asset_shell_payload(asset_shell: AssetShellDocument, compact: bool = False) -> dict[str, Any]:
-    payload: dict[str, Any] = {
-        "id": asset_shell.id,
-        "id_short": asset_shell.id_short,
-    }
-    _set_if_present(payload, "asset_kind", asset_shell.asset_kind)
-    _set_if_present(payload, "asset_type", asset_shell.asset_type)
-    _set_if_present(payload, "global_asset_id", asset_shell.global_asset_id)
-    if not compact:
-        _set_if_present(payload, "description", asset_shell.description)
-        if asset_shell.submodel_ids:
-            payload["submodel_ids"] = list(asset_shell.submodel_ids)
-    return payload
+def _asset_shell_lossless(asset_shell: AssetShellIR) -> dict[str, Any]:
+    return _strip_empty(
+        {
+            "id": asset_shell.id,
+            "id_short": asset_shell.id_short,
+            "description": asset_shell.description,
+            "asset_kind": asset_shell.asset_kind,
+            "asset_type": asset_shell.asset_type,
+            "global_asset_id": asset_shell.global_asset_id,
+            "submodel_ids": list(asset_shell.submodel_ids),
+        }
+    )
 
 
-def _submodel_summary_payload(submodel: SubmodelDocument, compact: bool = False) -> dict[str, Any]:
-    payload: dict[str, Any] = {
+def _asset_shell_agent(asset_shell: AssetShellIR) -> dict[str, Any]:
+    return _strip_empty(
+        {
+            "id": asset_shell.id,
+            "id_short": asset_shell.id_short,
+            "global_asset_id": asset_shell.global_asset_id,
+            "submodel_ids": list(asset_shell.submodel_ids),
+        }
+    )
+
+
+def _submodel_lossless(submodel: SubmodelIR) -> dict[str, Any]:
+    return _strip_empty(
+        {
+            "id": submodel.id,
+            "id_short": submodel.id_short,
+            "kind": submodel.kind,
+            "semantic_refs": list(submodel.semantic_refs),
+            "description": submodel.description,
+            "asset_shell_ids": list(submodel.asset_shell_ids),
+            "source_pointer": _source_pointer_payload(submodel.source_pointer),
+            "elements": [_element_lossless(element) for element in submodel.elements],
+        }
+    )
+
+
+def _submodel_agent_summary(submodel: SubmodelIR, include_trace: bool) -> dict[str, Any]:
+    payload = {
         "id": submodel.id,
         "id_short": submodel.id_short,
-        "synopsis": build_submodel_synopsis(submodel),
+        "description": submodel.description,
         "asset_shell_ids": list(submodel.asset_shell_ids),
-        "key_elements": [_brief_element_payload(element) for element in submodel.elements[:8]],
+        "sections": _submodel_agent_sections(submodel),
     }
-    _set_if_present(payload, "description", submodel.description)
-    _set_if_present(payload, "semantic_id", submodel.semantic_id)
-    if submodel.semantic_ids:
-        payload["semantic_ids"] = list(submodel.semantic_ids)
-    if not compact:
-        payload["source"] = {
-            "file": submodel.source_file,
-            "format": submodel.source_kind,
+    if include_trace:
+        payload["source_pointer"] = _source_pointer_payload(submodel.source_pointer)
+        payload["semantic_refs"] = list(submodel.semantic_refs)
+    return _strip_empty(payload)
+
+
+def _submodel_agent_sections(submodel: SubmodelIR) -> dict[str, Any]:
+    sections: dict[str, list[dict[str, Any]]] = {
+        "capabilities": [],
+        "materials": [],
+        "robots": [],
+        "sensors": [],
+        "end_effectors": [],
+        "numeric_facts": [],
+        "generic_facts": [],
+    }
+    for element in iter_elements(submodel.elements):
+        normalized = _normalize_name(element.id_short)
+        if normalized in _LIST_CATEGORY_FIELDS:
+            category = _LIST_CATEGORY_FIELDS[normalized]
+            sections[category].extend(_fact_entries_from_element(submodel, element, include_trace=False))
+        elif _element_has_numeric_fact(element):
+            sections["numeric_facts"].append(_numeric_fact_entry(submodel, element, include_trace=False))
+        elif element.display_value:
+            sections["generic_facts"].append(_fact_entry(submodel, element, include_trace=False))
+    return {key: _dedupe_fact_entries(value) if key != "numeric_facts" else _dedupe_numeric_facts(value) for key, value in sections.items() if value}
+
+
+def _element_lossless(element: ElementIR) -> dict[str, Any]:
+    return _strip_empty(
+        {
+            "path": element.path,
+            "stable_key": element.stable_key,
+            "id_short": element.id_short,
+            "display_label": element.display_label,
+            "model_type": element.model_type,
+            "value_kind": element.value_kind,
+            "raw_value": element.raw_value,
+            "display_value": element.display_value,
+            "typed_value": element.typed_value,
+            "value_type": element.value_type,
+            "unit": element.unit,
+            "normalized_unit": element.normalized_unit,
+            "nominal_value": element.nominal_value,
+            "min_value": element.min_value,
+            "max_value": element.max_value,
+            "semantic_refs": list(element.semantic_refs),
+            "qualifiers": [_qualifier_payload(item) for item in element.qualifiers],
+            "references": [_reference_payload(item) for item in element.references],
+            "description": element.description,
+            "category": element.category,
+            "source_pointer": _source_pointer_payload(element.source_pointer),
+            "children": [_element_lossless(child) for child in element.children],
         }
-    return payload
+    )
 
 
-def _element_payload(element: ElementDocument) -> dict[str, Any]:
-    payload: dict[str, Any] = {
-        "id_short": element.id_short,
-        "model_type": element.model_type,
-        "path": element.path,
-        "stable_key": element.stable_key,
-    }
-    if element.children:
-        payload["children"] = [_element_payload(child) for child in element.children]
+def _element_review(element: ElementIR) -> dict[str, Any]:
+    return _strip_empty(
+        {
+            "path": element.path,
+            "id_short": element.id_short,
+            "display_label": element.display_label,
+            "model_type": element.model_type,
+            "value_kind": element.value_kind,
+            "display_value": element.display_value,
+            "typed_value": element.typed_value,
+            "unit": element.unit,
+            "semantic_refs": list(element.semantic_refs),
+            "references": [_reference_payload(item) for item in element.references],
+            "source_pointer": _source_pointer_payload(element.source_pointer),
+            "children": [_element_review(child) for child in element.children],
+        }
+    )
+
+
+def _fact_entries_from_element(submodel: SubmodelIR, element: ElementIR, include_trace: bool) -> list[dict[str, Any]]:
+    if isinstance(element.typed_value, list) and not element.children:
+        values = [str(item) for item in element.typed_value if str(item)]
+    elif element.display_value:
+        values = _split_scalar_list(element.display_value)
     else:
-        _set_if_present(payload, "value", stringify(element.value))
-    _set_if_present(payload, "value_text", element.value_text)
-    _set_if_present(payload, "value_type", element.value_type)
-    _set_if_present(payload, "semantic_id", element.semantic_id)
-    if element.semantic_ids:
-        payload["semantic_ids"] = list(element.semantic_ids)
-    _set_if_present(payload, "category", element.category)
-    _set_if_present(payload, "description", element.description)
-    _set_if_present(payload, "unit", element.unit)
-    _set_if_present(payload, "normalized_unit", element.normalized_unit)
-    _set_if_present(payload, "number_value", element.number_value)
-    _set_if_present(payload, "min_value", element.min_value)
-    _set_if_present(payload, "max_value", element.max_value)
-    if element.references:
-        payload["references"] = [_reference_payload(reference) for reference in element.references]
-    return payload
+        values = []
+    return [_fact_entry(submodel, element, include_trace, forced_value=value) for value in values]
 
 
-def _brief_element_payload(element: ElementDocument) -> dict[str, Any]:
-    payload: dict[str, Any] = {
-        "id_short": element.id_short,
-        "model_type": element.model_type,
-    }
-    if element.value_text:
-        payload["value"] = element.value_text
-    _set_if_present(payload, "unit", element.unit)
-    _set_if_present(payload, "path", element.path)
-    if element.children:
-        payload["children"] = [_brief_element_payload(child) for child in element.children]
-    return payload
-
-
-def _reference_payload(reference: ReferenceDocument) -> dict[str, Any]:
-    return {
-        "type": reference.type,
-        "value": reference.value,
-    }
-
-
-def _collect_token_sheet(
-    flat_elements: list[tuple[SubmodelDocument, ElementDocument]],
-    normalized_fields: set[str],
+def _fact_entry(
+    submodel: SubmodelIR,
+    element: ElementIR,
+    include_trace: bool,
+    forced_value: str | None = None,
 ) -> dict[str, Any]:
-    items: list[str] = []
-    evidence: list[dict[str, str]] = []
-    for submodel, element in flat_elements:
-        if _normalize_name(element.id_short) not in normalized_fields or not element.value_text:
-            continue
-        for token in _split_value_tokens(element.value_text):
-            if token not in items:
-                items.append(token)
-                evidence.append({"submodel": submodel.id_short, "path": element.path, "value": token})
-    return {"items": items, "evidence": evidence[:20]}
+    payload = {
+        "label": element.display_label,
+        "value": forced_value if forced_value is not None else element.display_value,
+        "submodel": submodel.id_short,
+    }
+    if include_trace:
+        payload["path"] = element.path
+        payload["source_pointer"] = _source_pointer_payload(element.source_pointer)
+    return _strip_empty(payload)
 
 
-def _collect_digest(
-    flat_elements: list[tuple[SubmodelDocument, ElementDocument]],
-    terms: tuple[str, ...],
-    max_items: int,
-) -> list[dict[str, Any]]:
+def _numeric_fact_entry(submodel: SubmodelIR, element: ElementIR, include_trace: bool) -> dict[str, Any]:
+    payload = {
+        "label": element.display_label,
+        "submodel": submodel.id_short,
+        "nominal_value": element.nominal_value,
+        "min_value": element.min_value,
+        "max_value": element.max_value,
+        "unit": element.unit or element.normalized_unit,
+    }
+    if include_trace:
+        payload["path"] = element.path
+        payload["source_pointer"] = _source_pointer_payload(element.source_pointer)
+    return _strip_empty(payload)
+
+
+def _reference_payload(reference: ReferenceIR) -> dict[str, Any]:
+    return {"type": reference.type, "value": reference.value}
+
+
+def _qualifier_payload(qualifier: QualifierIR) -> dict[str, Any]:
+    return {"type": qualifier.type, "value": qualifier.value}
+
+
+def _source_pointer_payload(pointer: Any) -> dict[str, Any]:
+    if not pointer:
+        return {}
+    return _strip_empty(
+        {
+            "file": getattr(pointer, "file", ""),
+            "input_kind": getattr(pointer, "input_kind", ""),
+            "submodel_id": getattr(pointer, "submodel_id", ""),
+            "submodel_id_short": getattr(pointer, "submodel_id_short", ""),
+            "element_path": getattr(pointer, "element_path", ""),
+        }
+    )
+
+
+def _element_has_numeric_fact(element: ElementIR) -> bool:
+    return any(value is not None for value in (element.nominal_value, element.min_value, element.max_value))
+
+
+def _split_scalar_list(value: str) -> list[str]:
+    if not value:
+        return []
+    if ", " not in value and "\n" not in value and ";" not in value:
+        return [value]
     items = []
-    for submodel, element in flat_elements:
-        haystack = f"{submodel.id_short} {element.id_short} {element.path}".lower()
-        if not any(term in haystack for term in terms):
-            continue
-        if not element.value_text and not element.children:
-            continue
-        items.append(
-            {
-                "submodel": submodel.id_short,
-                "path": element.path,
-                "label": element.id_short,
-                "value": element.value_text or build_submodel_synopsis(submodel, max_items=2),
-            }
-        )
-        if len(items) >= max_items:
-            break
+    for part in value.replace("\n", ",").replace(";", ",").split(","):
+        clean = part.strip()
+        if clean:
+            items.append(clean)
     return items
 
 
-def _collect_numeric_facts(flat_elements: list[tuple[SubmodelDocument, ElementDocument]]) -> list[dict[str, Any]]:
-    facts = []
-    for submodel, element in flat_elements:
-        if element.number_value is None and element.min_value is None and element.max_value is None:
+def _dedupe_fact_entries(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    seen: set[tuple[str, str, str]] = set()
+    result = []
+    for entry in entries:
+        key = (str(entry.get("label")), str(entry.get("value")), str(entry.get("submodel")))
+        if key in seen:
             continue
-        facts.append(
-            {
-                "submodel": submodel.id_short,
-                "path": element.path,
-                "label": element.id_short,
-                "number_value": element.number_value,
-                "min_value": element.min_value,
-                "max_value": element.max_value,
-                "unit": element.normalized_unit or element.unit,
-            }
+        seen.add(key)
+        result.append(entry)
+    return result
+
+
+def _dedupe_numeric_facts(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    seen: set[tuple[str, Any, Any, Any, str]] = set()
+    result = []
+    for entry in entries:
+        key = (
+            str(entry.get("label")),
+            entry.get("nominal_value"),
+            entry.get("min_value"),
+            entry.get("max_value"),
+            str(entry.get("unit")),
         )
-    return facts[:20]
-
-
-def _split_value_tokens(value_text: str) -> list[str]:
-    tokens = []
-    for token in re.split(r"[,\n;|]+", value_text):
-        clean = token.strip()
-        if clean and clean not in tokens:
-            tokens.append(clean)
-    return tokens
+        if key in seen:
+            continue
+        seen.add(key)
+        result.append(entry)
+    return result
 
 
 def _artifact_names(
@@ -456,8 +611,8 @@ def _artifact_names(
     markdown_files: list[str],
     yaml_files: list[str],
     json_files: list[str],
-) -> dict[str, list[str]]:
-    payload = {
+) -> dict[str, list[str] | str]:
+    payload: dict[str, list[str] | str] = {
         "slug": slug,
         "markdown": markdown_files,
         "yaml": yaml_files,
@@ -478,15 +633,14 @@ def _artifact_slug(
     return fallback
 
 
-def _slug_for_submodel(submodel: SubmodelDocument) -> str:
-    slug = re.sub(r"[^a-z0-9]+", "-", (submodel.id_short or submodel.id).lower()).strip("-")
-    return slug or "submodel"
+def _slug_for_submodel(submodel: SubmodelIR) -> str:
+    return _normalize_name(submodel.id_short or submodel.id) or "submodel"
 
 
 def _apply_hooks(
     kind: str,
     payload: dict[str, Any],
-    document: ExportDocument,
+    document: DocumentIR,
     hooks: list[PayloadHook] | None,
 ) -> dict[str, Any]:
     if not hooks:
@@ -500,10 +654,16 @@ def _apply_hooks(
 
 
 def _normalize_name(value: str) -> str:
-    return re.sub(r"[^a-z0-9]+", "", value.lower())
+    return "".join(char for char in value.lower() if char.isalnum())
 
 
-def _set_if_present(payload: dict[str, Any], key: str, value: Any) -> None:
-    if value in ("", None, (), [], {}):
-        return
-    payload[key] = value
+def _strip_empty(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {
+            key: _strip_empty(item)
+            for key, item in value.items()
+            if item not in ("", None, (), [], {}) and _strip_empty(item) not in ("", None, (), [], {})
+        }
+    if isinstance(value, list):
+        return [_strip_empty(item) for item in value if item not in ("", None, (), [], {})]
+    return value

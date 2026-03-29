@@ -36,10 +36,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="Output format to write. Use `all` for Markdown, YAML, and JSON.",
     )
     parser.add_argument(
-        "--profile",
-        choices=("prompt-compact", "agent-structured", "diff-ready"),
-        default="agent-structured",
-        help="Rendering profile to use. Defaults to agent-structured.",
+        "--view",
+        choices=("lossless", "agent", "brief", "review"),
+        default="review",
+        help="Document view to render. Defaults to review.",
     )
     return parser
 
@@ -55,7 +55,7 @@ def main() -> int:
             include=args.include,
             overwrite=args.overwrite,
             output_format=args.output,
-            profile=args.profile,
+            view=args.view,
         )
     except Exception as error:
         print(f"error: {error}", file=sys.stderr)
@@ -73,14 +73,14 @@ def main() -> int:
             f"Exported {summary.file_count} file(s) "
             f"covering {summary.exported_submodel_count} submodel(s) "
             f"from {summary.input_path} to {summary.output_dir} "
-            f"as {output_kinds} using the {args.profile} profile"
+            f"as {output_kinds} using the {args.view} view"
         )
     else:
         print(
             f"Exported {summary.submodel_count} submodel(s) "
             f"across {summary.asset_shell_count} AAS object(s) "
             f"from {summary.input_path} to {summary.output_dir} "
-            f"as {output_kinds} using the {args.profile} profile"
+            f"as {output_kinds} using the {args.view} view"
         )
     return 0
 

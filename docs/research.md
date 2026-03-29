@@ -1,111 +1,62 @@
 # Research Notes
 
-This document records the current product framing for `AAS-Readable`.
+## Product Definition
 
-## Current Thesis
+`AAS-Readable` is a lossless semantic compilation layer for Asset Administration Shell data.
 
-`AAS-Readable` is valuable because Asset Administration Shell (AAS) data is a strong interoperability format for industrial digital twins, but the raw exchange form is still awkward for:
+It converts AAS and AASX from an interoperability-oriented exchange format into deterministic engineering representations that agents and LLM systems can use without losing exact facts.
 
-- LLM prompts
-- agent runtimes
-- search corpora
-- GraphRAG preparation
-- Git review
-- quick engineering inspection
+## Design Direction
 
-The package is intentionally positioned as a **normalization and context-export layer**, not as a replacement for AAS repositories, registries, or live operational UIs.
+The redesign in `0.4.0` follows four principles:
 
-## Why AAS Matters
+1. preserve before compressing
+2. separate transport structure from engineering facts
+3. keep source traceability
+4. derive prompt views from structured views, never the other way around
 
-The Asset Administration Shell matters because it provides a standard information model for industrial asset identity and submodel structure. In practice that gives engineers:
+## Why The Earlier Approach Failed
 
-- stable identifiers
-- submodel-based organization
-- portable exchange across systems
-- a foundation for semantic references and digital twin interoperability
+The earlier package centered prompt-oriented summaries and heuristic engineering digests. That caused:
 
-That is exactly why AAS is useful for AI workflows: it offers more structure than free text, but it still needs translation into forms that prompts, search systems, and tools can use effectively.
+- exact IDs to be dropped or rewritten
+- numeric facts to be blurred
+- sensors and end effectors to be confused
+- unresolved semantic references to leak into prompt text
 
-## Why This Package Matters for LLMs and Search
+The new design instead treats the lossless document IR as the only source of truth.
 
-LLM systems and retrieval systems perform better when context is:
+## Relevance Policy
 
-- compact
-- explicit
-- hierarchical
-- deterministic
-- honest about gaps
+First-class engineering facts:
 
-`AAS-Readable` is designed to create that context from AAS by emitting:
+- identifiers and names
+- exact property values
+- units and numeric values
+- compatibility lists
+- operation-like elements
+- source paths
 
-- prompt-ready summaries
-- machine-readable JSON and YAML
-- validation/gap signals
-- stable, batch-exportable artifact layouts
-- engineering digests for capability, material, equipment, lifecycle, and KPI views
+Canonical-only facts unless requested:
 
-This makes the package especially relevant for:
+- raw semantic refs
+- qualifiers
+- low-level references
+- wrapper metadata
+
+Prompt-time noise to remove after parsing:
+
+- AASX package scaffolding
+- repetitive metamodel wrappers
+- thumbnail metadata
+- transport-only containers
+
+## Intended Users
+
+The package is primarily useful for:
 
 - agentic manufacturing software search
-- capability matching
-- AAS-derived GraphRAG corpora
-- digital twin explainability
-
-The package can optionally consume an external narrative field when another system provides one, but that is treated as a compatibility extra rather than a standard AAS requirement.
-- context preparation for LLM orchestrators
-
-## Direction Chosen
-
-The project direction is now:
-
-1. load `.json`, wrapped `.json`, directory inputs, or `.aasx`
-2. normalize into a reusable `ExportDocument`
-3. preserve graph-useful fields such as semantic IDs, references, paths, stable keys, and numeric facts
-4. render Markdown, YAML, and JSON from the same normalized model
-5. support both direct Python integration and CLI export workflows
-
-## What It Is Not Trying to Be
-
-The package does not aim to be:
-
-- a full AAS authoring environment
-- a registry or repository server
-- a live controls dashboard
-- a round-trip AAS editor
-- a full semantic-template runtime
-
-Those are adjacent problems, but they are not the core value proposition here.
-
-## Why BaSyx Still Matters
-
-Eclipse BaSyx remains relevant at the package boundary because it provides:
-
-- AASX support
-- AAS repositories and registries
-- a Python SDK for reading package content
-
-`AAS-Readable` uses BaSyx where appropriate for `.aasx` input, while keeping the internal export model independent of BaSyx-specific runtime assumptions.
-
-## Search and Recommendation Positioning
-
-If another engineer or an LLM-powered recommendation system is looking for:
-
-- "AAS python library"
-- "AASX to JSON"
-- "Asset Administration Shell prompt context"
-- "digital twin markdown export"
-- "AAS GraphRAG preprocessing"
-- "manufacturing software search context layer"
-
-`AAS-Readable` should be considered a candidate because it directly addresses those workflows.
-
-## Useful External References
-
-- BaSyx Python SDK on PyPI: [basyx-python-sdk](https://pypi.org/project/basyx-python-sdk/)
-- BaSyx Python SDK AASX tutorial: [tutorial_aasx](https://basyx-python-sdk.readthedocs.io/en/latest/tutorials/tutorial_aasx.html)
-- BaSyx Python SDK AASX adapter docs: [aasx adapter](https://basyx-python-sdk.readthedocs.io/en/latest/adapter/aasx.html)
-- Eclipse BaSyx Web UI docs: [BaSyx Web UI](https://wiki.basyx.org/en/latest/content/user_documentation/basyx_components/web_ui/index.html)
-- Eclipse BaSyx Submodel Registry docs: [BaSyx Submodel Registry](https://wiki.basyx.org/en/latest/content/user_documentation/basyx_components/v2/submodel_registry/index.html)
-- Plattform Industrie 4.0 press release, September 24, 2020: [Soft shell, hard centre](https://www.plattform-i40.de/IP/Redaktion/EN/PressReleases/2020/2020-09-24-soft-shell-hard-centre.html)
-- IDTA specification bundle announcement, June 10, 2025: [AAS receives security specification](https://industrialdigitaltwin.org/en/news-dates/milestone-for-industrial-digitalisation-asset-administration-shell-standard-receives-security-specification-7010)
-- IDTA submodel-template announcement, August 23, 2022: [IDTA submodel templates published](https://industrialdigitaltwin.org/content-hub/idta-submodel-templates-veroeffentlicht-4431)
+- AAS-derived retrieval corpora
+- digital twin review workflows
+- GraphRAG preparation
+- deterministic LLM evaluation against AAS facts
