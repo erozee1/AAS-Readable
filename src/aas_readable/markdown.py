@@ -77,12 +77,12 @@ def render_llm_context_markdown(
         "",
     ]
 
-    if document.canonical_text:
+    if document.optional_narrative:
         lines.extend(
             [
-                "## Canonical Description",
+                "## Optional Narrative Summary",
                 "",
-                document.canonical_text.strip(),
+                document.optional_narrative.strip(),
                 "",
             ]
         )

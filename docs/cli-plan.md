@@ -35,13 +35,18 @@ Wrapped JSON example:
 
 ```json
 {
-  "canonical_text": "Short natural-language summary",
+  "narrative_summary": "Optional short natural-language summary",
   "aas": {
     "assetAdministrationShells": [],
     "submodels": []
   }
 }
 ```
+
+Compatibility note:
+
+- `canonical_text` is also accepted as an alias for `narrative_summary`
+- this field is optional and not part of standard AAS
 
 ## Defaults
 
@@ -181,7 +186,7 @@ Examples that all match the same submodel:
 - filenames are lowercase and slugified
 - collisions are resolved with `-2`, `-3`, and so on
 - nested submodel elements are rendered recursively
-- wrapped `canonical_text` is carried into the `llm-context` artifact
+- an optional wrapped narrative summary is carried into the `llm-context` artifact when present
 - directory exports produce deterministic per-file folders plus a manifest
 
 ## Non-Goals

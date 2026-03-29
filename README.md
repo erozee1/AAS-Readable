@@ -49,7 +49,7 @@ Raw AAS data is interoperable and structurally useful, but it is not naturally s
 Inputs:
 
 - AAS JSON environments
-- wrapped JSON records shaped like `{ "aas": ..., "canonical_text": ... }`
+- wrapped JSON records shaped like `{ "aas": ..., "narrative_summary": ... }`
 - `.aasx` packages when the `aasx` extra is installed
 - directories containing `.json` and `.aasx` files
 
@@ -125,7 +125,7 @@ from aas_readable import load_export_document_from_payload, render_submodel_bund
 document = load_export_document_from_payload(
     {
         "aas": aas_json,
-        "canonical_text": canonical_text,
+        "narrative_summary": narrative_summary,
     },
     source_name="memory.json",
 )
@@ -248,6 +248,17 @@ This makes it useful for:
 - ranking explanation generation
 - engineering document review
 - diffing digital twin snapshots over time
+
+## Optional Narrative Field
+
+Some pipelines attach a short narrative summary alongside the raw AAS payload.
+
+`AAS-Readable` supports that as an optional extra:
+
+- preferred field name: `narrative_summary`
+- compatibility alias: `canonical_text`
+
+This field is not part of standard AAS and is not required. If it is absent, the package still works normally and builds prompt-oriented context from the AAS structure itself.
 
 ## Who It Is For
 

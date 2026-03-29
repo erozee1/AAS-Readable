@@ -130,9 +130,9 @@ class YamlExportTests(unittest.TestCase):
             self.assertEqual(submodel_yaml["elements"][0]["children"][0]["id_short"], "SerialNumber")
             self.assertEqual(submodel_yaml["elements"][0]["children"][0]["value"], "SN-42")
 
-    def test_wrapped_json_includes_canonical_text_in_llm_context_yaml(self) -> None:
+    def test_wrapped_json_includes_optional_narrative_in_llm_context_yaml(self) -> None:
         wrapped = {
-            "canonical_text": "This application inspects drill quality in an aerospace line.",
+            "narrative_summary": "This application inspects drill quality in an aerospace line.",
             "aas": {
                 "assetAdministrationShells": [{"id": "urn:test:aas:2", "idShort": "NorthWingDrillTrace"}],
                 "submodels": [
@@ -159,7 +159,7 @@ class YamlExportTests(unittest.TestCase):
 
             llm_context_yaml = yaml.safe_load((output_dir / "llm-context.yaml").read_text(encoding="utf-8"))
             self.assertEqual(
-                llm_context_yaml["canonical_text"],
+                llm_context_yaml["optional_narrative"],
                 "This application inspects drill quality in an aerospace line.",
             )
 

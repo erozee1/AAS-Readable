@@ -81,9 +81,9 @@ class MarkdownRenderingTests(unittest.TestCase):
             self.assertIn("### ExampleAAS", llm_context)
             self.assertIn("`RatedVoltage`", llm_context)
 
-    def test_wrapped_meng_style_json_uses_canonical_text(self) -> None:
+    def test_wrapped_json_uses_optional_narrative_summary(self) -> None:
         wrapped = {
-            "canonical_text": "This application inspects drill quality in an aerospace line.",
+            "narrative_summary": "This application inspects drill quality in an aerospace line.",
             "aas": {
                 "assetAdministrationShells": [
                     {
@@ -117,6 +117,21 @@ class MarkdownRenderingTests(unittest.TestCase):
 
             llm_context = (output_dir / "llm-context.md").read_text(encoding="utf-8")
             self.assertIn("This application inspects drill quality in an aerospace line.", llm_context)
+            self.assertIn("## Optional Narrative Summary", llm_context)
+
+    def test_wrapped_json_still_accepts_canonical_text_alias(self) -> None:
+        wrapped = {
+            "canonical_text": "Compatibility alias summary.",
+            "aas": {
+                "assetAdministrationShells": [{"id": "urn:test:aas:2", "idShort": "NorthWingDrillTrace"}],
+                "submodels": [],
+            },
+        }
+
+        document = load_export_document_from_payload(wrapped, source_name="wrapped.json")
+        payload = render_llm_context(document=document, format="json", profile="prompt-compact")
+
+        self.assertEqual(payload["optional_narrative"], "Compatibility alias summary.")
 
     def test_render_submodel_markdown_renders_nested_children(self) -> None:
         sample = {
@@ -206,7 +221,7 @@ class MarkdownRenderingTests(unittest.TestCase):
 
     def test_json_api_preserves_machine_facing_fields(self) -> None:
         wrapped = {
-            "canonical_text": "",
+            "narrative_summary": "",
             "aas": {
                 "assetAdministrationShells": [
                     {

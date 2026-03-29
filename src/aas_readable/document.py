@@ -69,6 +69,7 @@ class ExportDocument:
     asset_shells: tuple[AssetShellDocument, ...]
     submodels: tuple[SubmodelDocument, ...]
     canonical_text: str = ""
+    optional_narrative: str = ""
     schema_version: str = "1.0.0"
 
 

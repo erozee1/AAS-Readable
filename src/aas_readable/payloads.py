@@ -100,8 +100,8 @@ def build_llm_context_payload(
         "validation": validation,
         "known_gaps": validation.get("known_gaps", []),
     }
-    if document.canonical_text:
-        payload["canonical_text"] = document.canonical_text.strip()
+    if document.optional_narrative:
+        payload["optional_narrative"] = document.optional_narrative.strip()
     return _apply_hooks("llm-context", payload, document, hooks)
 
 
@@ -189,8 +189,6 @@ def build_validation_payload(document: ExportDocument, submodels: list[SubmodelD
                 )
 
     known_gaps = []
-    if not document.canonical_text:
-        known_gaps.append("Canonical description is missing.")
     if missing_submodel_semantic_ids:
         known_gaps.append(f"{len(missing_submodel_semantic_ids)} submodel(s) are missing semantic IDs.")
     if missing_element_semantic_ids:
@@ -201,7 +199,7 @@ def build_validation_payload(document: ExportDocument, submodels: list[SubmodelD
         known_gaps.append("Some references could not be resolved within the export.")
 
     return {
-        "missing_canonical_text": not bool(document.canonical_text.strip()),
+        "optional_narrative_present": bool(document.optional_narrative.strip()),
         "missing_semantic_ids": {
             "submodels": missing_submodel_semantic_ids,
             "elements": missing_element_semantic_ids[:25],
@@ -246,8 +244,8 @@ def build_prompt_text(
     engineering_views: dict[str, Any],
 ) -> str:
     segments: list[str] = []
-    if document.canonical_text:
-        segments.append(document.canonical_text.strip())
+    if document.optional_narrative:
+        segments.append(document.optional_narrative.strip())
     else:
         names = ", ".join(submodel.id_short for submodel in submodels[:4] if submodel.id_short)
         if names:

@@ -50,6 +50,8 @@ This makes the package especially relevant for:
 - capability matching
 - AAS-derived GraphRAG corpora
 - digital twin explainability
+
+The package can optionally consume an external narrative field when another system provides one, but that is treated as a compatibility extra rather than a standard AAS requirement.
 - context preparation for LLM orchestrators
 
 ## Direction Chosen

@@ -90,7 +90,7 @@ from aas_readable import load_export_document_from_payload, render_llm_context
 document = load_export_document_from_payload(
     {
         "aas": aas_json,
-        "canonical_text": canonical_text,
+        "narrative_summary": narrative_summary,
     },
     source_name="live-record.json",
 )
@@ -126,3 +126,4 @@ summary = export_path(
 - JSON output is the clearest machine-facing representation
 - the package now includes a schema version in exported payloads
 - the legacy function name `export_input_to_markdown(...)` is still supported for compatibility, but it now writes more than Markdown depending on `output_format`
+- if a wrapped record includes an optional narrative field, prefer `narrative_summary`; `canonical_text` remains supported as a compatibility alias

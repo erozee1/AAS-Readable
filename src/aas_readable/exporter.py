@@ -201,10 +201,12 @@ def load_export_document_from_payload(payload: Any, source_name: str = "memory.j
     if isinstance(payload, dict) and "aas" in payload:
         aas_env = payload.get("aas") or {}
         canonical_text = _string_value(payload.get("canonical_text"))
+        optional_narrative = _string_value(payload.get("narrative_summary")) or canonical_text
         source_kind = "json-wrapped"
     elif isinstance(payload, dict):
         aas_env = payload
         canonical_text = ""
+        optional_narrative = _string_value(payload.get("narrative_summary"))
         source_kind = "json"
     else:
         raise ValueError("JSON input must be an AAS environment object or wrapper with an `aas` field.")
@@ -233,6 +235,7 @@ def load_export_document_from_payload(payload: Any, source_name: str = "memory.j
         asset_shells=asset_shells,
         submodels=submodels,
         canonical_text=canonical_text,
+        optional_narrative=optional_narrative,
         schema_version=_SCHEMA_VERSION,
     )
 
@@ -462,6 +465,7 @@ def _load_aasx_document(input_path: Path) -> ExportDocument:
         source_kind="aasx",
         asset_shells=tuple(asset_shells),
         submodels=submodels,
+        optional_narrative="",
         schema_version=_SCHEMA_VERSION,
     )
 
