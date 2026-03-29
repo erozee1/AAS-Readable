@@ -6,6 +6,12 @@ from typing import Any
 
 
 @dataclass(frozen=True)
+class ReferenceDocument:
+    type: str
+    value: str
+
+
+@dataclass(frozen=True)
 class ElementDocument:
     """Normalized submodel element used by the renderer for both JSON and AASX inputs."""
 
@@ -14,9 +20,18 @@ class ElementDocument:
     value: Any = None
     value_type: str = ""
     semantic_id: str = ""
+    semantic_ids: tuple[str, ...] = ()
     category: str = ""
     description: str = ""
     unit: str = ""
+    normalized_unit: str = ""
+    path: str = ""
+    stable_key: str = ""
+    value_text: str = ""
+    number_value: float | None = None
+    min_value: float | None = None
+    max_value: float | None = None
+    references: tuple[ReferenceDocument, ...] = ()
     children: tuple["ElementDocument", ...] = ()
 
 
@@ -26,7 +41,11 @@ class SubmodelDocument:
     id_short: str
     kind: str = ""
     semantic_id: str = ""
+    semantic_ids: tuple[str, ...] = ()
     description: str = ""
+    asset_shell_ids: tuple[str, ...] = ()
+    source_file: str = ""
+    source_kind: str = ""
     elements: tuple[ElementDocument, ...] = ()
 
 
@@ -50,6 +69,7 @@ class ExportDocument:
     asset_shells: tuple[AssetShellDocument, ...]
     submodels: tuple[SubmodelDocument, ...]
     canonical_text: str = ""
+    schema_version: str = "1.0.0"
 
 
 @dataclass(frozen=True)
@@ -59,3 +79,11 @@ class ExportSummary:
     submodel_count: int
     asset_shell_count: int
     source_kind: str
+
+
+@dataclass(frozen=True)
+class BatchExportSummary:
+    input_path: Path
+    output_dir: Path
+    file_count: int
+    exported_submodel_count: int

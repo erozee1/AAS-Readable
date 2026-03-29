@@ -1,6 +1,9 @@
+"""Markdown renderers for engineer-facing AAS exports."""
+
 from __future__ import annotations
 
 from .document import AssetShellDocument, ElementDocument, ExportDocument, SubmodelDocument
+from .payloads import build_engineering_views, build_llm_context_payload, build_submodel_synopsis, build_validation_payload
 from .util import stringify
 
 
@@ -16,6 +19,7 @@ def render_index_markdown(
         "",
         f"- File: `{document.source_path.name}`",
         f"- Format: `{document.source_kind}`",
+        f"- Schema Version: `{document.schema_version}`",
         f"- Asset administration shells: `{len(document.asset_shells)}`",
         f"- Exported submodels: `{len(submodels)}`",
         "",
@@ -31,7 +35,10 @@ def render_index_markdown(
 
     lines.extend(["", "## Submodels", ""])
     for submodel, markdown_file in zip(submodels, markdown_files):
+        synopsis = build_submodel_synopsis(submodel)
         lines.append(f"- [{submodel.id_short or submodel.id}]({markdown_file})")
+        if synopsis:
+            lines.append(f"  - {synopsis}")
 
     lines.extend(
         [
@@ -45,8 +52,16 @@ def render_index_markdown(
     return "\n".join(lines)
 
 
-def render_llm_context_markdown(document: ExportDocument, submodels: list[SubmodelDocument]) -> str:
+def render_llm_context_markdown(
+    document: ExportDocument,
+    submodels: list[SubmodelDocument],
+    profile: str = "agent-structured",
+) -> str:
     """Render the compact artifact intended to be pasted into an LLM prompt."""
+
+    payload = build_llm_context_payload(document=document, submodels=submodels, profile=profile)
+    engineering_views = build_engineering_views(submodels)
+    validation = build_validation_payload(document, submodels)
 
     lines = [
         "# AAS LLM Context",
@@ -57,6 +72,8 @@ def render_llm_context_markdown(document: ExportDocument, submodels: list[Submod
         "",
         f"- File: `{document.source_path.name}`",
         f"- Format: `{document.source_kind}`",
+        f"- Profile: `{profile}`",
+        f"- Schema Version: `{document.schema_version}`",
         "",
     ]
 
@@ -66,6 +83,16 @@ def render_llm_context_markdown(document: ExportDocument, submodels: list[Submod
                 "## Canonical Description",
                 "",
                 document.canonical_text.strip(),
+                "",
+            ]
+        )
+
+    if payload.get("prompt_text"):
+        lines.extend(
+            [
+                "## Prompt Summary",
+                "",
+                payload["prompt_text"],
                 "",
             ]
         )
@@ -81,6 +108,22 @@ def render_llm_context_markdown(document: ExportDocument, submodels: list[Submod
     for submodel in submodels:
         lines.extend(_render_submodel_summary(submodel))
 
+    lines.extend(["", "## Engineering Views", ""])
+    lines.extend(_render_sheet("Capabilities", engineering_views.get("capability_sheet", {}).get("items", [])))
+    lines.extend(_render_sheet("Equipment Compatibility", engineering_views.get("equipment_compatibility_sheet", {}).get("items", [])))
+    lines.extend(_render_sheet("Material Compatibility", engineering_views.get("material_compatibility_sheet", {}).get("items", [])))
+    lines.extend(_render_sheet("Sensor Compatibility", engineering_views.get("sensor_compatibility_sheet", {}).get("items", [])))
+    lines.extend(_render_digest("Lifecycle Digest", engineering_views.get("lifecycle_digest", [])))
+    lines.extend(_render_digest("Operational KPI Digest", engineering_views.get("operational_kpi_digest", [])))
+    lines.extend(_render_numeric_facts(engineering_views.get("numeric_facts", [])))
+
+    lines.extend(["", "## Known Gaps", ""])
+    if validation.get("known_gaps"):
+        for gap in validation["known_gaps"]:
+            lines.append(f"- {gap}")
+    else:
+        lines.append("_No major validation gaps detected._")
+
     lines.append("")
     return "\n".join(lines)
 
@@ -94,10 +137,19 @@ def render_submodel_markdown(submodel: SubmodelDocument) -> str:
         f"- Identifier: `{submodel.id or 'n/a'}`",
         f"- Id Short: `{submodel.id_short or 'n/a'}`",
         f"- Kind: `{submodel.kind or 'n/a'}`",
+        f"- Synopsis: {build_submodel_synopsis(submodel)}",
     ]
 
     if submodel.semantic_id:
         lines.append(f"- Semantic ID: `{submodel.semantic_id}`")
+    if submodel.semantic_ids:
+        lines.append(f"- Semantic IDs: `{', '.join(submodel.semantic_ids)}`")
+    if submodel.asset_shell_ids:
+        lines.append(f"- Asset Shell IDs: `{', '.join(submodel.asset_shell_ids)}`")
+    if submodel.source_file:
+        lines.append(f"- Source File: `{submodel.source_file}`")
+    if submodel.source_kind:
+        lines.append(f"- Source Kind: `{submodel.source_kind}`")
     if submodel.description:
         lines.append(f"- Description: {submodel.description}")
 
@@ -140,6 +192,7 @@ def _render_submodel_summary(submodel: SubmodelDocument) -> list[str]:
         f"### {submodel.id_short or submodel.id}",
         "",
         f"- Identifier: `{submodel.id}`",
+        f"- Synopsis: {build_submodel_synopsis(submodel)}",
     ]
     if submodel.description:
         lines.append(f"- Description: {submodel.description}")
@@ -167,16 +220,34 @@ def _render_element(element: ElementDocument, level: int) -> list[str]:
     value = _value(element.value)
     if value:
         lines.append(f"- Value: `{value}`")
+    if element.value_text:
+        lines.append(f"- Value Text: `{element.value_text}`")
+    if element.path:
+        lines.append(f"- Path: `{element.path}`")
+    if element.stable_key:
+        lines.append(f"- Stable Key: `{element.stable_key}`")
     if element.value_type:
         lines.append(f"- Value Type: `{element.value_type}`")
     if element.semantic_id:
         lines.append(f"- Semantic ID: `{element.semantic_id}`")
+    if element.semantic_ids:
+        lines.append(f"- Semantic IDs: `{', '.join(element.semantic_ids)}`")
     if element.category:
         lines.append(f"- Category: `{element.category}`")
     if element.description:
         lines.append(f"- Description: {element.description}")
     if element.unit:
         lines.append(f"- Unit: `{element.unit}`")
+    if element.number_value is not None:
+        lines.append(f"- Number Value: `{element.number_value}`")
+    if element.min_value is not None:
+        lines.append(f"- Min Value: `{element.min_value}`")
+    if element.max_value is not None:
+        lines.append(f"- Max Value: `{element.max_value}`")
+    if element.references:
+        lines.append("- References:")
+        for reference in element.references:
+            lines.append(f"  - `{reference.type}` -> `{reference.value}`")
 
     if element.children:
         lines.extend(["", f"{heading}# Children", ""])
@@ -190,17 +261,55 @@ def _render_element(element: ElementDocument, level: int) -> list[str]:
 def _render_element_brief(element: ElementDocument, depth: int) -> list[str]:
     indent = "  " * depth
     lines = []
-    value = _value(element.value)
-    # Keep the brief view dense: this file is meant for prompt context, not as a
-    # complete engineering report.
     detail_parts = [f"type={element.model_type or 'n/a'}"]
-    if value:
-        detail_parts.append(f"value={value}")
+    if element.value_text:
+        detail_parts.append(f"value={element.value_text}")
     if element.unit:
         detail_parts.append(f"unit={element.unit}")
+    if element.path:
+        detail_parts.append(f"path={element.path}")
     lines.append(f"{indent}- `{element.id_short}`: " + ", ".join(detail_parts))
     for child in element.children:
         lines.extend(_render_element_brief(child, depth + 1))
+    return lines
+
+
+def _render_sheet(title: str, items: list[str]) -> list[str]:
+    lines = [f"### {title}", ""]
+    if not items:
+        lines.append("_No items extracted._")
+    else:
+        for item in items:
+            lines.append(f"- {item}")
+    lines.append("")
+    return lines
+
+
+def _render_digest(title: str, items: list[dict]) -> list[str]:
+    lines = [f"### {title}", ""]
+    if not items:
+        lines.append("_No digest entries extracted._")
+    else:
+        for item in items:
+            lines.append(f"- `{item.get('path', 'n/a')}`: {item.get('value', '')}")
+    lines.append("")
+    return lines
+
+
+def _render_numeric_facts(items: list[dict]) -> list[str]:
+    lines = ["### Numeric Facts", ""]
+    if not items:
+        lines.append("_No numeric facts extracted._")
+    else:
+        for item in items:
+            unit = f" {item['unit']}" if item.get("unit") else ""
+            if item.get("min_value") is not None and item.get("max_value") is not None and item["min_value"] != item["max_value"]:
+                lines.append(
+                    f"- `{item.get('path', 'n/a')}`: {item['min_value']} to {item['max_value']}{unit}"
+                )
+            elif item.get("number_value") is not None:
+                lines.append(f"- `{item.get('path', 'n/a')}`: {item['number_value']}{unit}")
+    lines.append("")
     return lines
 
 

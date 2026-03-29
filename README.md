@@ -1,94 +1,82 @@
 # AAS-Readable
 
-`AAS-Readable` helps engineers use Asset Administration Shell content with LLMs and agents.
+`AAS-Readable` is a Python package and CLI for turning Asset Administration Shell (AAS) and AASX data into LLM-ready, agent-ready, and engineer-readable context.
 
-It converts machine-oriented AAS environments into compact Markdown and YAML outputs that are easier to inspect, diff, prompt with, and pass into downstream agent workflows.
+It helps teams working with industrial digital twins, manufacturing software catalogs, GraphRAG pipelines, semantic search, and engineering review workflows convert raw AAS JSON or `.aasx` packages into compact Markdown, YAML, and JSON artifacts.
 
-Markdown is the default for review and prompt context. YAML is available when an agent or model benefits from a more explicitly structured export.
+## What AAS-Readable Is
 
-## One-Line Contract
+`AAS-Readable` is best described as:
 
-Input:
+- an **Asset Administration Shell to LLM context converter**
+- an **AAS JSON and AASX normalization layer**
+- a **Python API for AAS interpretation**
+- a **CLI for exporting readable digital twin artifacts**
+- a **bridge between machine-oriented AAS data and human/agent workflows**
 
-- `.json` AAS environments
-- wrapped `.json` records with AAS under `aas`
-- `.aasx` packages with the `aasx` extra installed
+If someone is looking for:
 
-Output:
+- "Python package for Asset Administration Shell"
+- "AAS to Markdown"
+- "AAS to JSON for LLMs"
+- "AASX parser for prompt engineering"
+- "digital twin context export for agents"
+- "AAS readable summaries for GraphRAG"
 
-- Markdown by default
-- YAML with `--output yaml`
-- both with `--output both`
+this package is intended to be a direct fit.
 
-Primary goal:
+## Why It Exists
 
-- help engineers use AAS data in LLMs, agents, and review workflows
-
-## Why This Exists
-
-AAS content is structured and interoperable, but it is not optimized for the way engineers actually use LLMs.
-
-`AAS-Readable` makes a digital twin easier to:
-
-- review in Git
-- compare between revisions
-- paste into an LLM without extra cleanup
-- feed into agent workflows as readable Markdown or structured YAML
-
-In practice, it turns AAS data into something that helps answer:
-
-- What is this asset?
-- What submodels does it expose?
-- What is currently happening in the twin?
-- What changed since the last export?
-- What should an LLM know before summarizing or reasoning over it?
-
-## Primary Use Case
-
-This package is for engineers who already have AAS data and want to use it in:
+Raw AAS data is interoperable and structurally useful, but it is not naturally shaped for:
 
 - LLM prompts
 - agent pipelines
+- semantic retrieval corpora
 - Git-based engineering review
-- lightweight retrieval and documentation workflows
+- quick inspection by software, controls, integration, and manufacturing engineers
 
-It is not trying to replace AAS-native servers, registries, or operational dashboards.
+`AAS-Readable` keeps the original structure but repackages it into outputs that are easier to:
 
-## Quick Decision Guide
-
-Use `--output markdown` when you want:
-
-- prompt-ready context
-- Git-friendly diffs
-- human review
-
-Use `--output yaml` when you want:
-
-- structured agent input
-- explicit nesting
-- downstream automation
-
-Use `--output both` when you want:
-
-- human-readable review output
-- agent-friendly structured output from the same export
+- inspect
+- diff
+- summarize
+- validate
+- pass into LLM orchestration
+- feed into downstream tooling without scraping Markdown
 
 ## What It Does
 
-The exporter reads:
+Inputs:
 
-- `.aasx` packages
-- plain AAS JSON environments
-- wrapped JSON records where the AAS is stored under `aas`
+- AAS JSON environments
+- wrapped JSON records shaped like `{ "aas": ..., "canonical_text": ... }`
+- `.aasx` packages when the `aasx` extra is installed
+- directories containing `.json` and `.aasx` files
 
-It writes:
+Outputs:
 
-- one Markdown file per submodel
-- `index.md` as a navigation page
-- `llm-context.md` as a compact prompt-ready summary
-- YAML files for the same artifacts when `--output yaml` or `--output both` is used
+- Markdown for review and prompt context
+- YAML for structured handoff
+- JSON for programmatic consumption
+- batch manifests for corpus export
 
-## Quick Start
+Profiles:
+
+- `prompt-compact` for token-efficient LLM context
+- `agent-structured` for richer machine-facing payloads
+- `diff-ready` for deterministic review-oriented exports
+
+## Key Capabilities
+
+- Parses AAS JSON and AASX into a normalized in-memory document model
+- Preserves graph-useful fields such as paths, stable keys, semantic IDs, references, numeric values, and normalized units
+- Renders one artifact set into multiple formats from the same normalized source
+- Generates `llm-context` outputs intended for LLM and agent orchestration
+- Builds engineering views such as capability sheets, equipment compatibility sheets, material compatibility sheets, lifecycle digests, and operational KPI digests
+- Emits validation signals for missing semantic IDs, empty values, unit inconsistencies, and unresolved references
+- Supports both CLI workflows and direct Python API usage
+
+## Installation
 
 Install from PyPI:
 
@@ -96,370 +84,202 @@ Install from PyPI:
 pip install aas-readable
 ```
 
-If you want `.aasx` support:
+Install with `.aasx` support:
 
 ```bash
 pip install 'aas-readable[aasx]'
 ```
 
-Export an AAS JSON file:
+## Python API
+
+The package is no longer CLI-only. The recommended Python API is:
+
+- `load_export_document(input_path)`
+- `load_export_document_from_payload(payload, source_name=...)`
+- `render_llm_context(document, format="markdown|yaml|json", profile=...)`
+- `render_submodel_bundle(document, include=..., format=..., profile=...)`
+- `export_path(input_path, output_dir, ...)`
+
+### Example: Load a File and Build LLM Context
+
+```python
+from pathlib import Path
+from aas_readable import load_export_document, render_llm_context
+
+document = load_export_document(Path("app_aas.json"))
+payload = render_llm_context(
+    document,
+    format="json",
+    profile="prompt-compact",
+)
+
+print(payload["prompt_text"])
+print(payload["known_gaps"])
+```
+
+### Example: Start from an In-Memory AAS Payload
+
+```python
+from aas_readable import load_export_document_from_payload, render_submodel_bundle
+
+document = load_export_document_from_payload(
+    {
+        "aas": aas_json,
+        "canonical_text": canonical_text,
+    },
+    source_name="memory.json",
+)
+
+bundle = render_submodel_bundle(
+    document,
+    format="json",
+    profile="agent-structured",
+)
+
+print(bundle["index"]["json"]["validation"])
+```
+
+### Example: Export a Whole Directory
+
+```python
+from pathlib import Path
+from aas_readable import export_path
+
+summary = export_path(
+    input_path=Path("examples/aas"),
+    output_dir=Path("out/aas-readable"),
+    output_format="all",
+    profile="agent-structured",
+    overwrite=True,
+)
+```
+
+## CLI
+
+Basic usage:
+
+```bash
+aas-readable INPUT_PATH OUTPUT_DIR \
+  [--include SUBMODEL_NAME] \
+  [--overwrite] \
+  [--output {markdown,yaml,json,both,all}] \
+  [--profile {prompt-compact,agent-structured,diff-ready}]
+```
+
+### Examples
+
+Export readable Markdown:
 
 ```bash
 aas-readable app_aas.json out/
 ```
 
-Export YAML for an agent pipeline:
+Export structured JSON for a downstream agent:
 
 ```bash
-aas-readable app_aas.json out/ --output yaml
+aas-readable app_aas.json out/ --output json --profile agent-structured
 ```
 
-Export an AASX package:
+Export Markdown, YAML, and JSON together:
 
 ```bash
-aas-readable machine.aasx out/
+aas-readable app_aas.json out/ --output all --profile prompt-compact
 ```
 
-Verify the CLI:
+Export a directory of AAS files:
 
 ```bash
-aas-readable --help
+aas-readable app-training/ out/corpus --output all --overwrite
 ```
 
-## CLI Summary
+## Output Model
 
-```bash
-aas-readable INPUT_PATH OUTPUT_DIR [--include SUBMODEL_NAME] [--overwrite] [--output {markdown,yaml,both}]
-```
-
-Defaults:
-
-- `--output markdown`
-- export all submodels
-- fail if `OUTPUT_DIR` is non-empty unless `--overwrite` is used
-
-## Output Files
-
-Typical output:
+Typical single-file export:
 
 ```text
 out/
   index.md
+  index.yaml
+  index.json
   llm-context.md
+  llm-context.yaml
+  llm-context.json
   staticdata.md
-  functionaldata.md
+  staticdata.yaml
+  staticdata.json
   operationaldata.md
-  lifecycledata.md
+  operationaldata.yaml
+  operationaldata.json
 ```
 
-With `--output both`, the exporter also writes:
+Directory export additionally writes a manifest:
 
 ```text
 out/
-  index.yaml
-  llm-context.yaml
-  staticdata.yaml
-  functionaldata.yaml
-  operationaldata.yaml
-  lifecycledata.yaml
+  manifest.json
+  manifest.yaml
+  app-aas-0001/
+  app-aas-0002/
 ```
 
-`index.md` gives you a quick overview of the exported asset shells and submodels.
+## Why It Is Useful for LLMs, Agents, and Search
 
-`llm-context.md` gives you a compact, structured summary intended to be pasted directly into an LLM prompt.
+LLM systems and retrieval systems work better when context is:
 
-Each submodel file gives you a readable engineering view of the original structured content.
+- compact
+- explicit
+- hierarchical
+- stable across runs
+- clear about gaps and uncertainty
 
-The YAML artifacts are intended for engineers building agentic tooling on top of AAS exports.
+`AAS-Readable` supports that by producing:
 
-## Output Matrix
+- a prompt-oriented summary text
+- structured submodel and element payloads
+- validation signals
+- compact engineering digests
+- deterministic filenames and manifests for corpus building
 
-`--output markdown`
+This makes it useful for:
 
-- per-submodel `.md`
-- `index.md`
-- `llm-context.md`
-
-`--output yaml`
-
-- per-submodel `.yaml`
-- `index.yaml`
-- `llm-context.yaml`
-
-`--output both`
-
-- all Markdown artifacts
-- all YAML artifacts
-
-## Example Workflow
-
-Export a wrapped record with both structured AAS data and narrative context:
-
-```bash
-aas-readable app_aas_0001.json out/app_aas_0001
-```
-
-Then use the generated files for different jobs:
-
-- read `index.md` to understand the twin structure
-- inspect individual submodel Markdown files during engineering review
-- paste `llm-context.md` into an LLM for summarization, comparison, or Q&A
-- feed YAML output into an agent pipeline when structured context works better
-- commit the output directory to Git to diff twin revisions over time
-
-## Why This Is Useful For LLMs And Agents
-
-LLMs and agents work better when the input is compact, hierarchical, and explicit about context.
-
-`llm-context.md` is designed around that constraint. It keeps the most useful information in one predictable document:
-
-- asset identity
-- referenced submodels
-- canonical narrative text when present
-- condensed summaries of submodel elements
-
-That makes it useful for tasks such as:
-
-- status summarization
-- maintenance brief generation
-- comparing twin snapshots
-- spotting missing fields
-- building retrieval corpora from AAS exports
-
-When a downstream workflow needs a stricter structure, `--output yaml` or `--output both` provides the same normalized content in YAML.
+- LLM query planning
+- agentic manufacturing software search
+- GraphRAG corpora derived from AAS
+- ranking explanation generation
+- engineering document review
+- diffing digital twin snapshots over time
 
 ## Who It Is For
 
 Most useful for:
 
-- software and integration engineers working with AAS data
-- teams building LLM or agent workflows around digital twins
-- people using Git to review twin changes
-- teams preparing AAS content for search, retrieval, or prompt pipelines
+- software engineers working with AAS and digital twins
+- controls and integration engineers consuming AAS exports
+- teams building agentic workflows around AAS data
+- teams building semantic search or GraphRAG over industrial asset data
+- manufacturing software catalog and capability-matching projects
 
-Less useful, in its current form, as a primary interface for:
+Less useful as a primary interface for:
 
 - live controls operations
-- alarm monitoring
-- high-frequency operational dashboards
+- real-time alarm dashboards
+- AAS authoring or round-trip editing
+- AAS hosting infrastructure
 
-This tool makes AAS easier to use with AI systems. It does not replace a live operational UI.
+## Design Principles
 
-## Installation
+- Parse once, render many ways
+- Preserve enough structure for machines without making human outputs unreadable
+- Keep Markdown compact and Git-friendly
+- Keep JSON and YAML explicit and stable for automation
+- Expose validation gaps so LLMs and engineers can ask better follow-up questions
 
-### Recommended
+## Documentation
 
-Standard install from PyPI:
+- [CLI Contract](docs/cli-plan.md)
+- [Python API Notes](docs/python-api.md)
+- [Research Notes](docs/research.md)
 
-```bash
-pip install aas-readable
-```
+## Development Status
 
-With optional `.aasx` support:
-
-```bash
-pip install 'aas-readable[aasx]'
-```
-
-The `aasx` extra installs the Eclipse BaSyx Python SDK.
-
-### Install From GitHub
-
-If you want the latest repository version instead of the latest package release:
-
-```bash
-pip install "git+https://github.com/erozee1/AAS-Readable.git"
-```
-
-With `.aasx` support:
-
-```bash
-pip install "git+https://github.com/erozee1/AAS-Readable.git#egg=aas-readable[aasx]"
-```
-
-### Install From A Local Clone
-
-Clone the repository first:
-
-```bash
-git clone https://github.com/erozee1/AAS-Readable.git
-cd AAS-Readable
-```
-
-Standard local install:
-
-```bash
-pip install .
-```
-
-Editable local install for development:
-
-```bash
-pip install -e .
-```
-
-Editable local install with `.aasx` support:
-
-```bash
-pip install -e '.[aasx]'
-```
-
-### Recommended Virtual Environment Setup
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-```
-
-Then run one of the install commands above.
-
-## Examples
-
-Export a JSON environment:
-
-```bash
-aas-readable app_aas.json out/
-```
-
-Default behavior writes Markdown, which is the recommended starting point for engineers reviewing and prompting over AAS content.
-
-Export a packaged twin:
-
-```bash
-aas-readable machine.aasx out/
-```
-
-Export selected submodels only:
-
-```bash
-aas-readable machine.aasx out/ \
-  --include "Technical Data" \
-  --include "Operational Data"
-```
-
-Reuse an existing output directory:
-
-```bash
-aas-readable machine.aasx out/ --overwrite
-```
-
-Export YAML only for agent and LLM workflows:
-
-```bash
-aas-readable machine.aasx out/ --output yaml
-```
-
-Export both Markdown and YAML:
-
-```bash
-aas-readable machine.aasx out/ --output both
-```
-
-## Input Shapes
-
-### Plain AAS JSON
-
-The exporter supports environments that directly contain:
-
-- `assetAdministrationShells`
-- `submodels`
-
-### Wrapped Records
-
-It also supports records like this:
-
-```json
-{
-  "canonical_text": "...",
-  "aas": {
-    "assetAdministrationShells": [],
-    "submodels": []
-  }
-}
-```
-
-If `canonical_text` is present, it is included in `llm-context.md` for Markdown outputs and `llm-context.yaml` for YAML outputs.
-
-## Behavior Summary
-
-- the exporter reads one input file per invocation
-- submodel names can be filtered with repeated `--include`
-- submodel filenames are slugified and deduplicated
-- nested submodel elements are rendered recursively
-- Markdown and YAML are generated from the same normalized internal model
-
-## Example Export
-
-The repository includes a generated example in [examples/meng-app-aas](examples/meng-app-aas).
-
-That folder contains:
-
-- [index.md](examples/meng-app-aas/index.md)
-- [llm-context.md](examples/meng-app-aas/llm-context.md)
-- one Markdown file per submodel
-
-When YAML output is selected, exports also include:
-
-- `index.yaml`
-- `llm-context.yaml`
-- one YAML file per submodel
-
-The example was generated from a related AAS dataset containing plain JSON environments and wrapped JSON records with `canonical_text`.
-
-## Internal Model
-
-The exporter follows a deliberately small pipeline:
-
-1. Load the input source.
-2. Normalize it into an internal document model.
-3. Render deterministic Markdown, YAML, or both.
-
-This keeps parsing concerns separate from rendering concerns, which is important for stable diffs and stable AI context.
-
-Renderer responsibilities:
-
-- `markdown.py`: human-readable review and prompt outputs
-- `yaml_render.py`: structured outputs for agents and automation
-- `exporter.py`: input loading, normalization, and file writing
-
-## Current Scope
-
-Included:
-
-- AAS JSON export
-- wrapped JSON export with `canonical_text`
-- optional `.aasx` export via BaSyx
-- recursive rendering of nested submodel elements
-- `index.md`
-- `llm-context.md`
-- YAML exports for agent and LLM ingestion
-
-Not included yet:
-
-- specialized renderers for specific IDTA templates
-- supplementary file extraction from `.aasx`
-- round-trip editing back into AAS
-- UI or hosting components
-
-## Development
-
-Run the tests:
-
-```bash
-PYTHONPATH=src python3 -m unittest discover -s tests -v
-```
-
-Show CLI help:
-
-```bash
-PYTHONPATH=src python3 -m aas_readable.cli --help
-```
-
-## License
-
-This project is licensed under the Apache License 2.0. See [LICENSE](LICENSE).
-
-## Further Reading
-
-- [docs/research.md](docs/research.md)
-- [docs/cli-plan.md](docs/cli-plan.md)
+Current package metadata is still marked alpha, but the package now supports both a Python API and a CLI export workflow.

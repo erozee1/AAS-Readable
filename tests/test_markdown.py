@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from aas_readable.exporter import export_input_to_markdown
+from aas_readable.exporter import export_input_to_markdown, load_export_document_from_payload, render_llm_context
 
 
 class MarkdownRenderingTests(unittest.TestCase):
@@ -203,6 +203,47 @@ class MarkdownRenderingTests(unittest.TestCase):
 
             with self.assertRaises(FileExistsError):
                 export_input_to_markdown(input_path=input_path, output_dir=output_dir)
+
+    def test_json_api_preserves_machine_facing_fields(self) -> None:
+        wrapped = {
+            "canonical_text": "",
+            "aas": {
+                "assetAdministrationShells": [
+                    {
+                        "id": "urn:test:aas:json",
+                        "idShort": "ExampleAAS",
+                        "submodels": [
+                            {"keys": [{"type": "Submodel", "value": "urn:test:sm:json"}]},
+                        ],
+                    }
+                ],
+                "submodels": [
+                    {
+                        "id": "urn:test:sm:json",
+                        "idShort": "OperationalData",
+                        "semanticId": {"keys": [{"type": "GlobalReference", "value": "urn:test:cd:operational"}]},
+                        "submodelElements": [
+                            {
+                                "idShort": "SpindleSpeed",
+                                "modelType": "Property",
+                                "semanticId": {"keys": [{"type": "GlobalReference", "value": "urn:test:cd:spindle"}]},
+                                "value": "500-1200 rpm",
+                                "unit": "rpm",
+                            }
+                        ],
+                    }
+                ],
+            },
+        }
+
+        document = load_export_document_from_payload(wrapped, source_name="wrapped.json")
+        payload = render_llm_context(document=document, format="json", profile="prompt-compact")
+
+        self.assertEqual(payload["schema_version"], "1.0.0")
+        self.assertIn("known_gaps", payload)
+        self.assertIn("prompt_text", payload)
+        self.assertEqual(payload["submodels"][0]["semantic_ids"], ["urn:test:cd:operational"])
+        self.assertIn("SpindleSpeed", payload["prompt_text"])
 
 
 if __name__ == "__main__":

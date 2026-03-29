@@ -1,41 +1,41 @@
 # CLI Contract
 
-This document describes the current CLI behavior of `aas-readable`.
+This document describes the current command-line contract for `aas-readable`.
 
-## Intent
+## Purpose
 
-The CLI is designed to help engineers turn AAS data into outputs that are easier to use with:
+The CLI exists for engineers who want a straightforward way to export Asset Administration Shell (AAS) data into artifacts that are easier to use with:
 
 - LLM prompts
 - agent pipelines
-- Git review
-- lightweight documentation
+- digital twin review workflows
+- Git diffs
+- semantic search and corpus preparation
 
 ## Command
 
 ```bash
-aas-readable INPUT_PATH OUTPUT_DIR [--include SUBMODEL_NAME] [--overwrite] [--output {markdown,yaml,both}]
+aas-readable INPUT_PATH OUTPUT_DIR \
+  [--include SUBMODEL_NAME] \
+  [--overwrite] \
+  [--output {markdown,yaml,json,both,all}] \
+  [--profile {prompt-compact,agent-structured,diff-ready}]
 ```
-
-## Defaults
-
-- default output format: `markdown`
-- default behavior: export all submodels
-- output directory must be empty unless `--overwrite` is passed
 
 ## Inputs
 
-Supported input types:
+Supported inputs:
 
-- `.json`: plain AAS environments
-- `.json`: wrapped records with the AAS stored under `aas`
-- `.aasx`: AASX packages when the `aasx` extra is installed
+- `.json` AAS environment files
+- wrapped `.json` records that contain AAS under `aas`
+- `.aasx` packages when `aas-readable[aasx]` is installed
+- directories containing `.json` and `.aasx` files
 
-Wrapped JSON shape:
+Wrapped JSON example:
 
 ```json
 {
-  "canonical_text": "...",
+  "canonical_text": "Short natural-language summary",
   "aas": {
     "assetAdministrationShells": [],
     "submodels": []
@@ -43,7 +43,14 @@ Wrapped JSON shape:
 }
 ```
 
-## Outputs
+## Defaults
+
+- default output format: `markdown`
+- default profile: `agent-structured`
+- default behavior: export all submodels
+- output directory must be empty unless `--overwrite` is passed
+
+## Output Formats
 
 ### `--output markdown`
 
@@ -53,10 +60,10 @@ Writes:
 - `index.md`
 - `llm-context.md`
 
-Use this when the main goal is:
+Best for:
 
-- review
-- prompting
+- human review
+- prompt copy/paste
 - Git diffs
 
 ### `--output yaml`
@@ -67,65 +74,122 @@ Writes:
 - `index.yaml`
 - `llm-context.yaml`
 
-Use this when the main goal is:
+Best for:
 
-- agent ingestion
-- structured downstream processing
-- workflows that benefit from explicit nesting
+- structured downstream workflows
+- tool handoff
+- systems that prefer nested text formats over Markdown
+
+### `--output json`
+
+Writes:
+
+- one `.json` file per exported submodel
+- `index.json`
+- `llm-context.json`
+
+Best for:
+
+- Python applications
+- agent runtimes
+- search indexing
+- programmatic validation
 
 ### `--output both`
 
-Writes both artifact sets.
+Writes:
 
-Use this when a workflow needs:
+- all Markdown artifacts
+- all YAML artifacts
 
-- human-readable review output
-- structured agent-facing output
+### `--output all`
+
+Writes:
+
+- all Markdown artifacts
+- all YAML artifacts
+- all JSON artifacts
+
+This is the recommended option for building reusable AAS corpora.
+
+## Profiles
+
+### `prompt-compact`
+
+Optimized for:
+
+- low-token LLM context
+- orchestration prompts
+- retrieval summaries
+
+Behavior:
+
+- keeps the highest-signal fields
+- emphasizes `prompt_text`, compact key elements, and known gaps
+
+### `agent-structured`
+
+Optimized for:
+
+- machine-facing pipelines
+- automation
+- richer element payloads
+
+Behavior:
+
+- preserves fields such as path, stable key, semantic IDs, references, numeric facts, and normalized units
+
+### `diff-ready`
+
+Optimized for:
+
+- deterministic review
+- Git-based inspection
+- structured change comparison
+
+## Directory Exports
+
+When `INPUT_PATH` is a directory, `aas-readable` exports each `.json` or `.aasx` file into a deterministic subdirectory and writes:
+
+- `manifest.json`
+- `manifest.yaml` when YAML is requested
+
+This mode is useful for:
+
+- prompt corpora
+- retrieval corpora
+- AAS dataset audits
+- bulk engineering review
 
 ## Filtering
 
-`--include` matches submodel names after normalization.
+`--include` filters submodels by normalized name.
 
 Normalization rules:
 
 - lowercase the name
 - remove non-alphanumeric characters
 
-Example:
+Examples that all match the same submodel:
 
 - `Operational Data`
 - `operationaldata`
 - `operational-data`
 
-All match the same submodel.
-
 ## Output Conventions
 
 - filenames are lowercase and slugified
-- filename collisions are resolved with `-2`, `-3`, and so on
+- collisions are resolved with `-2`, `-3`, and so on
 - nested submodel elements are rendered recursively
-- wrapped `canonical_text` is included in the LLM-context artifact for the selected output format
-
-## Internal Structure
-
-The CLI uses a small pipeline:
-
-1. load input
-2. normalize it into an internal document model
-3. render Markdown, YAML, or both
-
-Current module responsibilities:
-
-- `cli.py`: argument parsing and user-facing errors
-- `exporter.py`: load, normalize, and write outputs
-- `markdown.py`: Markdown rendering
-- `yaml_render.py`: YAML rendering
+- wrapped `canonical_text` is carried into the `llm-context` artifact
+- directory exports produce deterministic per-file folders plus a manifest
 
 ## Non-Goals
 
-The CLI does not currently try to provide:
+The CLI does not try to provide:
 
+- AAS authoring
 - round-trip editing back into AAS
 - live dashboards
-- attachment extraction
-- template-specific semantic formatting
+- AAS repository hosting
+- registry synchronization

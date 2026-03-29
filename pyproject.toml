@@ -5,14 +5,28 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "aas-readable"
 version = "0.2.0"
-description = "Prepare Asset Administration Shell data for engineers using LLMs and agents"
+description = "Python API and CLI for converting Asset Administration Shell (AAS) and AASX data into LLM-ready, agent-ready, and engineer-readable context"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "Apache-2.0"}
 authors = [
   {name = "Ethan Rozee"},
 ]
-keywords = ["aas", "aasx", "digital-twin", "industry-4-0", "llm", "agents", "yaml", "markdown"]
+keywords = [
+  "asset administration shell",
+  "aas",
+  "aasx",
+  "digital twin",
+  "industry 4.0",
+  "llm",
+  "agents",
+  "graphrag",
+  "semantic search",
+  "manufacturing software",
+  "json",
+  "yaml",
+  "markdown",
+]
 urls = {Homepage = "https://github.com/erozee1/AAS-Readable", Repository = "https://github.com/erozee1/AAS-Readable"}
 classifiers = [
   "Development Status :: 3 - Alpha",
@@ -28,6 +42,7 @@ classifiers = [
   "Topic :: Scientific/Engineering :: Information Analysis",
   "Topic :: Software Development :: Libraries :: Python Modules",
   "Topic :: Text Processing :: Markup",
+  "Topic :: Scientific/Engineering",
 ]
 dependencies = [
   "PyYAML>=6.0",

@@ -244,6 +244,48 @@ class YamlExportTests(unittest.TestCase):
             self.assertFalse((output_dir / "llm-context.md").exists())
             self.assertFalse((output_dir / "staticdata.md").exists())
 
+    def test_json_export_writes_machine_readable_bundle(self) -> None:
+        sample = {
+            "assetAdministrationShells": [{"id": "urn:test:aas:1", "idShort": "ExampleAAS"}],
+            "submodels": [
+                {
+                    "id": "urn:test:sm:1",
+                    "idShort": "OperationalData",
+                    "submodelElements": [
+                        {
+                            "idShort": "CycleTime",
+                            "modelType": "Property",
+                            "value": "3.5",
+                            "unit": "s",
+                        }
+                    ],
+                }
+            ],
+        }
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            input_path = tmp_path / "sample.json"
+            output_dir = tmp_path / "out"
+            input_path.write_text(json.dumps(sample), encoding="utf-8")
+
+            export_input_to_markdown(
+                input_path=input_path,
+                output_dir=output_dir,
+                output_format="json",
+                profile="agent-structured",
+            )
+
+            index_json = json.loads((output_dir / "index.json").read_text(encoding="utf-8"))
+            llm_context_json = json.loads((output_dir / "llm-context.json").read_text(encoding="utf-8"))
+            submodel_json = json.loads((output_dir / "operationaldata.json").read_text(encoding="utf-8"))
+
+            self.assertEqual(index_json["schema_version"], "1.0.0")
+            self.assertEqual(index_json["submodels"][0]["artifacts"]["json"], ["operationaldata.json"])
+            self.assertIn("prompt_text", llm_context_json)
+            self.assertEqual(submodel_json["elements"][0]["path"], "OperationalData/CycleTime")
+            self.assertEqual(submodel_json["elements"][0]["normalized_unit"], "s")
+
 
 if __name__ == "__main__":
     unittest.main()
