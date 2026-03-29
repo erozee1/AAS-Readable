@@ -106,6 +106,18 @@ document = load_document_from_payload(
 payload = render_document(document, format="json", view="agent")
 ```
 
+## Install
+
+```bash
+pip install aas-readable
+```
+
+With AASX support:
+
+```bash
+pip install "aas-readable[aasx]"
+```
+
 ## CLI
 
 ```bash
@@ -189,6 +201,13 @@ Run the package tests with the project venv that already has `PyYAML`:
 
 ```bash
 PYTHONPATH=src /Users/ethanrozee/Documents/Projects/MEng\ project/.venv/bin/python -m unittest discover -s tests -v
+```
+
+Build and verify the release artifacts:
+
+```bash
+/Users/ethanrozee/Documents/Projects/MEng\ project/.venv/bin/python -m build --no-isolation
+/Users/ethanrozee/Documents/Projects/MEng\ project/.venv/bin/python -m twine check dist/aas_readable-0.4.0*
 ```
 
 ## Search Terms

@@ -28,6 +28,6 @@
 - [OperationalData](operationaldata.md)
 - [LifecycleData](lifecycledata.md)
 
-## LLM Context
+## Document View
 
-- [llm-context.md](llm-context.md)
+- [document.md](document.md)
