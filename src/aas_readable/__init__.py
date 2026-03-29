@@ -1,6 +1,6 @@
 """Python API for converting AAS and AASX data into readable LLM and agent context."""
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 from .exporter import (
     export_aasx_to_markdown,
