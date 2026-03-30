@@ -1,4 +1,4 @@
-"""Python API for converting AAS and AASX data into lossless, deterministic agent and review views."""
+"""Python API for converting AAS and AASX data into lossless, deterministic export, review, and optional agent views."""
 
 __version__ = "0.4.0"
 

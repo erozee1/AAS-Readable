@@ -1,6 +1,8 @@
 # Python API
 
-`AAS-Readable` now exposes a view-based API built on a lossless document IR.
+`AAS-Readable` exposes a view-based API built on a lossless document IR.
+
+This API is best used when you explicitly want a deterministic transform of AAS data. It is not positioned as a mandatory replacement for raw AAS JSON in modern frontier-model runtimes.
 
 ## Preferred Entry Points
 
@@ -19,14 +21,13 @@ document = load_document(Path("app_aas.json"))
 payload = render_document(document, format="json", view="agent")
 ```
 
-## View Meanings
+## View Guidance
 
 ### `lossless`
 
-Use for exact machine processing.
+Use for exact machine processing and traceability.
 
 Properties:
-
 - preserves source paths
 - preserves semantic refs
 - preserves references and qualifiers
@@ -34,38 +35,35 @@ Properties:
 
 ### `agent`
 
-Use for agent handoff and deterministic extraction.
+Use for explicit structured exports to agents or downstream tools.
 
 Properties:
-
 - exact identifiers
 - grouped compatibility facts
 - numeric facts without heuristic rewriting
-- compact but still structured
+- deterministic structured sections
 
 ### `brief`
 
-Use for prompt context when you want fewer tokens.
+Use only when you deliberately want a compact human-readable transform.
 
 Properties:
-
 - derived from `agent`
-- exact IDs and values stay exact
+- exact IDs and included values stay exact
 - omissions are explicit
+- not recommended as a default reasoning input for modern models
 
 ### `review`
 
 Use for engineering inspection and Git diff review.
 
 Properties:
-
 - includes provenance and trace detail
 - deterministic ordering
 
 ## Wrapped Payloads
 
 The package accepts:
-
 - bare AAS environment JSON
 - wrapped JSON with `{"aas": ...}`
 - optional `narrative_summary`
@@ -84,13 +82,12 @@ document = load_document_from_payload(
     source_name="wrapped.json",
 )
 
-brief = render_document(document, format="markdown", view="brief")
+review = render_document(document, format="yaml", view="review")
 ```
 
 ## Compatibility Layer
 
-The following names still exist as thin shims:
-
+These names still exist as thin shims:
 - `load_export_document`
 - `load_export_document_from_payload`
 - `render_llm_context`

@@ -1,38 +1,38 @@
 # AAS-Readable
 
-`AAS-Readable` converts Asset Administration Shell (`AAS`) and `AASX` data from an interoperability-oriented exchange format into lossless, deterministic engineering representations for agents, LLMs, review, and retrieval preparation.
+`AAS-Readable` converts Asset Administration Shell (`AAS`) and `AASX` data into **lossless, deterministic, reviewable representations**.
 
-It is not a summarizer first. The package now works as:
+For modern frontier models, raw AAS JSON is often already a strong direct reasoning input. `AAS-Readable` is therefore best treated as an **optional specialist tool**, not as the default runtime ingestion layer for every LLM workflow.
 
-1. parse AAS / AASX once
-2. normalize into a lossless intermediate representation
-3. render exact `lossless`, `agent`, `brief`, or `review` views from that source of truth
+Use it when you explicitly need:
+- normalized exports
+- deterministic agent/tool inputs
+- audit and review views
+- benchmark fixtures
+- controlled downstream transforms with source traceability
 
-## What Problem It Solves
+Do not assume it will automatically outperform raw AAS JSON for modern models.
 
-Raw AAS is useful for interoperability, but awkward for LLMs and agent systems because it mixes:
+## When To Use It
 
-- transport structure
-- metamodel boilerplate
-- engineering facts
-- references and trace metadata
+- You need a stable, machine-facing AAS representation for tooling or tests.
+- You want review-friendly YAML or Markdown derived from the same source of truth.
+- You want to export AAS content into a deterministic format for downstream systems.
+- You want explicit, structured transforms instead of ad hoc prompt formatting.
 
-`AAS-Readable` separates those concerns and produces views that are:
+## When Not To Use It
 
-- exact enough for extraction and matching
-- compact enough for prompt use
-- traceable back to source paths
-- deterministic enough for tests and Git review
+- You already have a strong frontier model reasoning directly over raw AAS JSON.
+- You want a default runtime prompt format with guaranteed accuracy gains over raw JSON.
+- You only need the original AAS for interoperability or storage.
 
-## What It Is Not
+`brief` Markdown is compact and useful when a human-readable transform is explicitly desired, but it is **not** the recommended default reasoning input for modern models.
 
-`AAS-Readable` is not:
+## What The Package Does
 
-- an AAS authoring tool
-- an AAS registry or repository
-- a live controls dashboard
-- a round-trip editor
-- a semantic resolution service
+1. Parse AAS / AASX once
+2. Normalize into a lossless intermediate representation
+3. Render explicit `lossless`, `agent`, `brief`, or `review` views from that source of truth
 
 ## Core Views
 
@@ -40,41 +40,37 @@ Raw AAS is useful for interoperability, but awkward for LLMs and agent systems b
 
 Full canonical IR in JSON or YAML.
 
-Use this when you need:
-
+Use this for:
 - exact field preservation
 - source traceability
 - downstream transforms
-- benchmark and agent test inputs
+- benchmark and QA fixtures
 
 ### `agent`
 
-Deterministic machine-facing representation grouped into:
+Deterministic structured output for explicit agent or tool integrations.
 
-- identifiers
-- capabilities
-- materials
-- robots
-- sensors
-- end effectors
-- numeric facts
-- operations
-- generic facts
-- gaps
-
-Use this when an agent or evaluation task needs compact but extraction-safe context.
+Use this for:
+- exact identifiers
+- grouped compatibility facts
+- numeric facts without heuristic rewriting
+- compact but still structured machine-facing exports
 
 ### `brief`
 
-Compact prompt-oriented text generated from the `agent` view.
+Compact prompt-oriented text derived from `agent`.
 
-It is token-efficient, but it does not invent ranges, rewrite IDs, or flatten semantics before preservation.
+Use this only when you explicitly want a compact human-readable transform. It preserves exact IDs and values when included, but it is not positioned as the default reasoning input for modern frontier models.
 
 ### `review`
 
 Deterministic review-oriented output for engineers and Git diffs.
 
-It includes provenance and trace details that the `brief` view omits.
+Use this for:
+- provenance
+- traceability
+- human inspection
+- change review
 
 ## Python API
 
@@ -90,7 +86,7 @@ brief = render_document(document, format="markdown", view="brief")
 review = render_document(document, format="yaml", view="review")
 ```
 
-For wrapped in-memory payloads:
+Wrapped in-memory payloads are also supported:
 
 ```python
 from aas_readable import load_document_from_payload, render_document
@@ -147,57 +143,21 @@ out/
   lifecycledata.json
 ```
 
-## Relevance Policy
-
-`AAS-Readable` keeps exact engineering facts first-class:
-
-- app and asset identifiers
-- names
-- property labels and values
-- units
-- numeric facts
-- capabilities
-- materials
-- robots
-- sensors
-- end effectors
-- operation-like elements
-- source paths
-
-It keeps raw semantic references and low-level trace metadata in canonical and review views, but does not force unresolved URNs into the compact prompt view by default.
-
-It removes prompt-time noise after parsing, such as:
-
-- AASX package scaffolding
-- repeated metamodel wrappers
-- transport-only containers
-- thumbnail metadata
-- repeated boilerplate that is no longer needed once facts are normalized
-
 ## Compatibility Notes
 
 `0.4.0` is a breaking cleanup release.
 
-The preferred API is now:
-
+Preferred API:
 - `load_document(...)`
 - `load_document_from_payload(...)`
 - `render_document(document, view=..., format=...)`
 - `render_submodels(document, view=..., format=...)`
 
-Thin compatibility shims still exist for:
-
-- `load_export_document(...)`
-- `load_export_document_from_payload(...)`
-- `render_llm_context(...)`
-- `render_submodel_bundle(...)`
-- `export_input_to_markdown(...)`
-
-But new integrations should use the `view` API directly.
+Thin compatibility shims still exist for older names, but new integrations should use the view API directly.
 
 ## Development
 
-Run the package tests with the project venv that already has `PyYAML`:
+Run the package tests:
 
 ```bash
 PYTHONPATH=src /Users/ethanrozee/Documents/Projects/MEng\ project/.venv/bin/python -m unittest discover -s tests -v
@@ -212,14 +172,11 @@ Build and verify the release artifacts:
 
 ## Search Terms
 
-If you are looking for:
-
+Relevant discovery terms:
 - Asset Administration Shell Python library
 - AASX to JSON
-- AAS to agent IR
-- AAS LLM context
-- digital twin prompt preprocessing
-- manufacturing software search context layer
-- AAS GraphRAG preprocessing
-
-then `AAS-Readable` is intended to be a strong candidate.
+- AAS review export
+- AAS agent export
+- deterministic AAS transform
+- digital twin review tooling
+- AAS QA fixture generation

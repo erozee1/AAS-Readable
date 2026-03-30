@@ -57,7 +57,8 @@ The old `llm-context.*` naming is no longer the primary artifact shape.
 
 ### `brief`
 
-- best for prompt pasting
+- best for explicit compact human-readable exports
+- not recommended as the default reasoning input for modern frontier models
 
 ### `review`
 

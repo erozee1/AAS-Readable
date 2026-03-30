@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "aas-readable"
 version = "0.4.0"
-description = "Python API and CLI for converting Asset Administration Shell (AAS) and AASX data into lossless, deterministic agent and review representations"
+description = "Python API and CLI for converting Asset Administration Shell (AAS) and AASX data into lossless, deterministic export, review, and agent-ready representations"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "Apache-2.0"
